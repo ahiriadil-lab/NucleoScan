@@ -1,0 +1,33 @@
+name: Scientific or validation question
+description: Discuss assumptions, benchmarks, residue mapping or interpretation.
+title: "[Science]: "
+body:
+  - type: textarea
+    id: question
+    attributes:
+      label: Question or concern
+      description: Identify the claim, metric or implementation being discussed.
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: Provide dataset identifiers, references, figures or numerical results.
+    validations:
+      required: true
+
+  - type: textarea
+    id: mapping
+    attributes:
+      label: Construct and residue mapping
+      description: If applicable, document PDB chain, construct boundaries and numbering.
+
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope acknowledgement
+      options:
+        - label: I have read SCIENTIFIC_SCOPE.md.
+          required: true

@@ -1,77 +1,77 @@
+<p align="center">
+  <img src="assets/nucleoscan-banner.png" alt="NucleoScan protein-fragment emergence banner" width="100%">
+</p>
+
 # NucleoScan
 
-A structure-guided pipeline for ranking residue-level structural emergence in
-single-domain proteins using ESMFold fragment predictions, native-contact
-recovery, backbone agreement, compactness, model confidence and native topology.
+[![Quality checks](https://github.com/ahiriadil-lab/NucleoScan/actions/workflows/quality.yml/badge.svg)](https://github.com/ahiriadil-lab/NucleoScan/actions/workflows/quality.yml)
+[![CodeQL](https://github.com/ahiriadil-lab/NucleoScan/actions/workflows/codeql.yml/badge.svg)](https://github.com/ahiriadil-lab/NucleoScan/actions/workflows/codeql.yml)
+[![Release](https://img.shields.io/github/v/release/ahiriadil-lab/NucleoScan?display_name=tag)](https://github.com/ahiriadil-lab/NucleoScan/releases)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Python 3.10 | 3.12](https://img.shields.io/badge/Python-3.10%20%7C%203.12-3776AB.svg)](https://www.python.org/)
+[![CITATION.cff](https://img.shields.io/badge/citation-CFF-green.svg)](CITATION.cff)
 
-> **Scientific scope.** NucleoScan's continuous output is interpreted as a
-> **fragment-emergence score (FES)**: a
-> ranking for structure-linked HDX protection propensity. Start2Fold HDX labels
-> are not a ground truth for folding-nucleus membership, and an N-terminal
-> prefix scan is not a folding-time trajectory. A literal transition-state or
-> folding-nucleus interpretation requires independent Φ/Ψ measurements or
-> committor-based simulations. See [SCIENTIFIC_SCOPE.md](SCIENTIFIC_SCOPE.md).
+NucleoScan is a structure-guided research pipeline for ranking residue-level
+structural emergence in small, predominantly single-domain proteins. It combines
+independent ESMFold fragment predictions with native-contact recovery, backbone
+agreement, hydrophobic compactness, model confidence and native topology.
 
-## Overview
+> [!IMPORTANT]
+> The continuous output is a **fragment-emergence score (FES)**. It is not a
+> folding probability, a kinetic trajectory or direct evidence of
+> transition-state membership. See [Scientific scope](SCIENTIFIC_SCOPE.md).
 
-The pipeline implements a *delta scoring* strategy: for each N-terminal prefix
-length L, ESMFold predicts an independent fragment structure and scores it
-against the corresponding region of a native reference structure. The
-per-residue contribution δ(i) = score(L) − score(L−1) measures the association
-between adding residue i and a change in predicted structural organization.
-It does not represent elapsed time or a causal folding step. Residues above an
-adaptive threshold are reported as high-scoring candidates for follow-up.
+## Highlights
 
-Three structural quality metrics are fused into a composite score per fragment:
+- Single-sequence structure prediction with ESMFold; no MSA is required.
+- N-terminal prefix scanning, with optional bidirectional analysis.
+- Per-fragment RMSD, local native-contact recovery, hydrophobic radius of
+  gyration and pLDDT-aware scoring.
+- Per-residue marginal, combined, ab initio and unified scoring modes.
+- Start2Fold HDX comparison, transparent baselines and automated sanity checks.
+- Versioned metadata, input checksums and CPU-compatible continuous integration.
 
-| Metric | Description | Direction |
-|--------|-------------|-----------|
-| Backbone RMSD | Cα RMSD vs. native (nm) | lower is better |
-| Q-value | Fraction of native contacts formed | higher is better |
-| Hydrophobic Rg | Radius of gyration of hydrophobic core (nm) | lower is better |
+## Method overview
 
-Four principal scoring methods are available (`SCORING_METHOD` in `config.py`):
-`marginal`, `combined`, `ab_initio`, and `unified` (default, recommended).
+```text
+Dataset and reference PDB
+          │
+          ▼
+Sequence extraction and fragment generation (L = 3 … N)
+          │
+          ▼
+Independent ESMFold prediction for every fragment
+          │
+          ▼
+RMSD + local Q + hydrophobic Rg + pLDDT
+          │
+          ▼
+Composite fragment score and per-residue Δ-score
+          │
+          ▼
+Unified FES + adaptive candidate threshold
+          │
+          ▼
+CSV outputs, figures, sanity checks and HDX comparisons
+```
+
+For a prefix ending at residue *i*, the marginal signal is
+
+```text
+δ(i) = score(fragment 1…i) − score(fragment 1…i−1)
+```
+
+The structures at lengths *i* and *i−1* are predicted independently. Therefore,
+δ(i) measures an association with structural emergence, not elapsed folding time.
 
 ## Requirements
 
-**Python:** 3.10 or 3.12 (tested)
+- Python 3.10 or 3.12
+- Linux recommended
+- CUDA-capable NVIDIA GPU for ESMFold inference
+- Approximately 8 GB GPU memory for the tested default configuration
 
-**GPU:** CUDA-capable GPU required for ESMFold inference.
-Tested on NVIDIA RTX 3080 (8 GB VRAM) with CUDA 11.8 / 12.1.
-
-**PyTorch:** Install before ESMFold — must match your CUDA version:
-```bash
-# CUDA 11.8
-pip install torch==2.0.1+cu118 --index-url https://download.pytorch.org/whl/cu118
-# CUDA 12.1
-pip install torch==2.1.0+cu121 --index-url https://download.pytorch.org/whl/cu121
-```
-
-**ESMFold:**
-```bash
-pip install "fair-esm[esmfold]"
-```
-Model weights (~2.5 GB) are downloaded automatically on first inference.
-
-**All other dependencies:**
-```bash
-pip install -r requirements.txt
-```
-
-## Data
-
-The primary benchmark is the **Start2Fold** HDX database (Pancsa *et al.* 2016),
-included as `data/start2fold_data.json`. It curates residue-level kinetic and
-equilibrium hydrogen/deuterium-exchange protection classes. These annotations
-measure exchange protection and may overlap kinetically important regions, but
-they do not by themselves establish transition-state or folding-nucleus
-membership.
-
-The pipeline also supports an alternative dataset (`--database v3`) via
-`data/two_state_folding_v3.xlsx` (included), and a merged mode (`--database merged`).
-
-PDB structures are downloaded automatically from the RCSB on first run.
+The lightweight tests and metadata checks do not require a GPU.
 
 ## Installation
 
@@ -79,155 +79,161 @@ PDB structures are downloaded automatically from the RCSB on first run.
 git clone https://github.com/ahiriadil-lab/NucleoScan.git
 cd NucleoScan
 
-# 1. Install PyTorch (see Requirements above)
-# 2. Install ESMFold
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+```
+
+Install a PyTorch build compatible with the local CUDA runtime, then install
+ESMFold and the remaining dependencies:
+
+```bash
 pip install "fair-esm[esmfold]"
-# 3. Install remaining dependencies
 pip install -r requirements.txt
 ```
 
-## Usage
+The [PyTorch installation selector](https://pytorch.org/get-started/locally/)
+provides the correct command for each CUDA version.
 
-**Run the full pipeline on all proteins:**
+## Quick start
+
+Run one protein first to verify the environment:
+
 ```bash
-python run_dataset.py
+python run_dataset.py --proteins TrpCage --skip-advanced
 ```
 
-**Run on specific proteins:**
+Run the complete Start2Fold dataset:
+
 ```bash
-python run_dataset.py --database v3 --proteins Ubiquitin CI2
+python run_dataset.py --database start2fold
 ```
 
-**Run the exploratory Φ-value comparison and sensitivity analysis:**
-```bash
-python run_dataset.py --database v3 --proteins Ubiquitin --sensitivity --phi-compare
-```
+Useful variants:
 
-The Φ-value utility is analysis infrastructure, not completed independent
-validation. Its bundled fallback tables are suitable for software smoke tests
-only. Publication-grade use requires verification of the experimental construct,
-residue mapping, mutation-level uncertainty and inclusion criteria.
-
-**Skip advanced analysis (faster):**
 ```bash
-python run_dataset.py --skip-advanced
-```
+# Restrict the run and label its outputs
+python run_dataset.py --database v3 --proteins Ubiquitin CI2 \
+  --run-label publication_v1_1_0
 
-**Dry run (print commands without executing):**
-```bash
+# Add C-terminal fragments
+python run_dataset.py --proteins Ubiquitin --bidirectional
+
+# Inspect commands without running ESMFold
 python run_dataset.py --dry-run
 ```
 
-**Evaluate scores against Start2Fold HDX protection labels:**
-```bash
-python validation/start2fold.py --all-levels --results-dir results/
+[![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ahiriadil-lab/NucleoScan/blob/main/RUN_ON_COLAB.ipynb)
+
+## Scoring
+
+The default `unified` score combines three normalized axes:
+
+| Axis | Signal | Default weight |
+|---|---|---:|
+| Fragment addition | Marginal change when residue *i* is added | 0.35 |
+| Intermediate contacts | Contact organization in an operational Q window | 0.40 |
+| Native topology | Contact degree, secondary structure and betweenness | 0.25 |
+
+Weights are redistributed when an axis lacks adequate sampling. Candidate flags
+use a protein-length-adaptive threshold:
+
+```text
+threshold = mean(FES) + adaptive_sigma_factor(N) × standard_deviation(FES)
 ```
 
-**Reproduce the four baseline comparisons:**
+The historical output columns `nucleus_score` and `is_nucleus` remain unchanged
+for file-format compatibility. They should be read as FES and exploratory
+candidate flag, respectively.
+
+## Data
+
+The default benchmark contains 209 Start2Fold records covering 57 PDB entries.
+The repository also includes the project-specific two-state folding table used
+by `--database v3`. Data provenance, third-party terms and SHA-256 checksums are
+documented in [DATA.md](DATA.md) and [DATA_MANIFEST.tsv](DATA_MANIFEST.tsv).
+
+Reference structures missing from the local cache are retrieved from the RCSB
+Protein Data Bank during a run.
+
+## Outputs
+
+Each protein is written to `results/<protein_name>/`:
+
+| File | Contents |
+|---|---|
+| `fragment_scores.csv` | Per-fragment metrics and composite scores |
+| `residue_scores.csv` | FES, component axes and candidate flags |
+| `validation_report.csv` | Automated data and score sanity checks |
+| `structural_importance.csv` | Native-topology importance metrics |
+| `folding_nucleus.png` | Legacy filename for the FES profile |
+| `composite_summary.png` | Summary of residue and fragment-level signals |
+
+Large generated structures and results are intentionally excluded from Git.
+Publication-specific output archives should be deposited separately with a
+permanent identifier. See [Reproducibility](REPRODUCIBILITY.md).
+
+## Validation and limitations
+
+NucleoScan can compare FES with six Start2Fold HDX protection classes and with
+four transparent baselines:
+
 ```bash
+python validation/start2fold.py --all-levels --results-dir results/
+
 python validation/baselines.py --results-dir results/ \
   --structures-dir structures/ --pdb-dir data/pdb_cleaned/
 ```
 
-This evaluates FES alongside coverage-mean per-residue pLDDT, native contact
-degree, deterministic random scores and a constant all-residue score. It writes
-per-protein metrics and matched comparisons to `results/baseline_validation/`.
+Important limitations:
 
-## Configuration
+- Start2Fold protection is not folding-nucleus ground truth.
+- Prefix length is sequence context, not physical time.
+- An intermediate-Q window is not a committor-defined transition-state ensemble.
+- N-terminal scanning is less informative for C-terminal or discontinuous
+  structural determinants.
+- The method is best supported for small, predominantly single-domain proteins.
 
-All parameters are centralised in `config.py`. Key parameters:
+## Repository structure
 
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| `SCORING_METHOD` | `"unified"` | Scoring method: `marginal`, `combined`, `ab_initio`, `unified` |
-| `MARGINAL_SIGMA_FACTOR` | `1.0` | σ multiplier for adaptive marginal threshold |
-| `UNIFIED_W_KINETIC` | `0.35` | Legacy parameter name: weight of the fragment-addition marginal axis |
-| `UNIFIED_W_COOPERATIVE` | `0.40` | Weight of the operational intermediate-contact axis |
-| `UNIFIED_W_TOPOLOGICAL` | `0.25` | Unified method: weight of topological (structural importance) axis |
-| `CONTACT_CUTOFF_NM` | `0.45` | Native contact distance threshold (nm) |
-| `MIN_FRAGMENT_LENGTH` | `5` | Standalone default; `run_dataset.py` sets it to 3 |
-| `MAX_FRAGMENT_LENGTH` | `25` | Standalone default; `run_dataset.py` sets it to the chain length |
-| `RANDOM_SEED` | `42` | Legacy reproducibility seed; unchanged ESMFold inputs are deterministic |
-| `PLDDT_REJECT_THRESHOLD` | `40.0` | Reject fragments with mean pLDDT below this value |
-
-The marginal scoring threshold is computed per protein:
+```text
+core/          structural analysis and residue scoring
+modules/       contact, cooperativity, importance and sensitivity analyses
+validation/    HDX comparisons, baselines and sanity checks
+viz/           publication-oriented plots
+data/          bundled benchmark inputs and adapters
+tests/         CPU-only smoke and metadata tests
 ```
-threshold = μ(δ) + adaptive_sigma_factor(N) × σ(δ)
-```
-where `adaptive_sigma_factor(N)` scales with protein length (see `config.py`).
 
-## Outputs
+## Reproducibility and contribution
 
-Results are written to `results/<protein_name>/`:
-
-| File | Description |
-|------|-------------|
-| `residue_scores.csv` | Per-residue FES values, legacy candidate flags, and raw metrics |
-| `fragment_scores.csv` | Per-fragment composite quality scores (RMSD, Q, Hydro Rg) |
-| `folding_nucleus.png` | Legacy filename: bar chart of FES values with adaptive threshold |
-| `validation_report.csv` | Automated sanity checks |
-| `structural_importance.csv` | Per-residue structural importance (contact degree, SS persistence, betweenness) |
-| `sensitivity_heatmap.png` | Candidate-set composition vs. threshold parameter sweep |
-| `dataset_summary.csv` | Cross-protein summary of candidate residues and metrics |
-
-## Interpreting Results
-
-The continuous `nucleus_score` field is retained for backward compatibility and
-should be read as FES. The `is_nucleus` field is a heuristic thresholded
-candidate flag, not a calibrated biological classification. If the selected
-candidate fraction is unexpectedly large or small:
-
-- **Too high (>50%):** Threshold too low — increase `MARGINAL_SIGMA_FACTOR`
-  (e.g., from 1.0 to 1.5) or switch to `scoring_method = "unified"`.
-- **Too low (<10%):** Threshold too high or insufficient fragment coverage —
-  decrease `MARGINAL_SIGMA_FACTOR` or reduce `MIN_FRAGMENT_LENGTH`.
-
-Use `--sensitivity` to visualize candidate-set composition as a function of the
-threshold. Use `--phi-compare` only as an exploratory comparison after auditing
-the experimental Φ-values and residue mapping.
-
-The method is best supported for small, predominantly single-domain proteins.
-Performance against early HDX protection declines with chain length, and the
-N-terminal scan has a systematic blind spot for C-terminal or discontinuous
-determinants.
-
-## Reproducing reported benchmark results
-
-Pipeline outputs are excluded from Git because they are large. A manuscript or
-release that reports benchmark statistics must link a versioned archive
-containing the complete per-fragment and per-residue outputs, configuration,
-tables and figures. Code plus input annotations alone are insufficient to
-reproduce the reported numerical results.
+- [Reproducibility guide](REPRODUCIBILITY.md)
+- [Scientific scope](SCIENTIFIC_SCOPE.md)
+- [Contributing guide](CONTRIBUTING.md)
+- [Security policy](SECURITY.md)
+- [Changelog](CHANGELOG.md)
 
 ## Citation
 
-If you use this pipeline, please cite:
+GitHub exposes the repository citation through [CITATION.cff](CITATION.cff).
+Until a journal article or archived release DOI is available, cite the software
+release directly:
 
 ```bibtex
-@software{nucleoscan,
+@software{ahiri_nucleoscan_2026,
   author  = {Ahiri, Adil},
   title   = {NucleoScan},
+  version = {1.1.0},
   year    = {2026},
-  url     = {https://github.com/ahiriadil-lab/NucleoScan}
+  url     = {https://github.com/ahiriadil-lab/NucleoScan},
+  note    = {ORCID: 0000-0001-5170-6538}
 }
 ```
 
-For ESMFold:
-> Lin, Z., Akin, H., Rao, R., et al. (2023).
-> Evolutionary-scale prediction of atomic-level protein structure with a language model.
-> *Science*, 379(6637), 1123–1130. https://doi.org/10.1126/science.ade2574
-
-For the Start2Fold database:
-> Pancsa, R., Varadi, M., Tompa, P., & Vranken, W. F. (2016).
-> Start2Fold: a database of hydrogen/deuterium exchange data on protein folding and stability.
-> *Nucleic Acids Research*, 44(D1), D429–D434.
-> https://doi.org/10.1093/nar/gkv1185
-
-For the nucleation–condensation mechanism:
-> Fersht, A. R. (1995).
-> Optimization of rates of protein folding: the nucleation–condensation mechanism and its implications.
-> *PNAS*, 92(24), 10869–10873. https://doi.org/10.1073/pnas.92.24.10869
+Please also cite ESMFold and Start2Fold when their predictions or annotations
+are used. Full references are included in [CITATION.cff](CITATION.cff).
 
 ## License
 
-MIT — see `LICENSE`.
+The software is released under the [MIT License](LICENSE). Bundled third-party
+data retain their original terms; see [DATA.md](DATA.md).

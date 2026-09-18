@@ -2,6 +2,7 @@ cff-version: 1.2.0
 message: "If you use this software, please cite it as below."
 type: software
 title: "NucleoScan"
+version: "1.1.0"
 abstract: >
   A structure-guided pipeline that ranks residue-level structural emergence
   in single-domain proteins using ESMFold fragment predictions, native-contact
@@ -12,9 +13,13 @@ authors:
   - family-names: Ahiri
     given-names: Adil
     email: ahiri.adil@gmail.com
+    orcid: "https://orcid.org/0000-0001-5170-6538"
+    affiliation: "Polydisciplinary Faculty of Safi, Cadi Ayyad University, Safi, Morocco"
 repository-code: "https://github.com/ahiriadil-lab/NucleoScan"
+repository-artifact: "https://github.com/ahiriadil-lab/NucleoScan/releases/tag/v1.1.0"
+url: "https://github.com/ahiriadil-lab/NucleoScan"
 license: MIT
-date-released: "2026-05-03"
+date-released: "2026-09-18"
 keywords:
   - protein folding
   - hydrogen-deuterium exchange

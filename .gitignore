@@ -6,6 +6,10 @@ __pycache__/
 *.egg
 dist/
 build/
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
 
 # Virtual environments
 venv*/
