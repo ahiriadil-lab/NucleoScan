@@ -6,7 +6,7 @@
 #   pip install "fair-esm[esmfold]"
 fair-esm[esmfold]>=2.0.0
 
-biopython>=1.79,<2.0
+biopython>=1.88,<2.0
 mdtraj>=1.9.7,<2.0
 pandas>=1.5.0,<2.3
 numpy>=1.23.0,<2.0
