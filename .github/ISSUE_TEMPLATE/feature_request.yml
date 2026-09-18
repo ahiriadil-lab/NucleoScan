@@ -1,0 +1,32 @@
+name: Feature request
+description: Propose a focused enhancement to NucleoScan.
+title: "[Feature]: "
+body:
+  - type: textarea
+    id: need
+    attributes:
+      label: Scientific or technical need
+      description: What limitation or workflow gap would this address?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: Describe inputs, outputs and compatibility implications.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checklist
+      options:
+        - label: I searched existing issues and the roadmap in the changelog.
+          required: true

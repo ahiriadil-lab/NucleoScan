@@ -1,0 +1,76 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+type: software
+title: "NucleoScan"
+version: "1.1.0"
+abstract: >
+  A structure-guided pipeline that ranks residue-level structural emergence
+  in single-domain proteins using ESMFold fragment predictions, native-contact
+  recovery, backbone agreement, compactness, model confidence and native
+  topology. Its fragment-emergence score is evaluated against HDX protection
+  and is not a calibrated probability of folding-nucleus membership.
+authors:
+  - family-names: Ahiri
+    given-names: Adil
+    email: ahiri.adil@gmail.com
+    orcid: "https://orcid.org/0000-0001-5170-6538"
+    affiliation: "Polydisciplinary Faculty of Safi, Cadi Ayyad University, Safi, Morocco"
+repository-code: "https://github.com/ahiriadil-lab/NucleoScan"
+repository-artifact: "https://github.com/ahiriadil-lab/NucleoScan/releases/tag/v1.1.0"
+url: "https://github.com/ahiriadil-lab/NucleoScan"
+license: MIT
+date-released: "2026-09-18"
+keywords:
+  - protein folding
+  - hydrogen-deuterium exchange
+  - fragment scanning
+  - ESMFold
+  - phi-value analysis
+  - structural bioinformatics
+references:
+  - type: article
+    title: "Start2Fold: a database of hydrogen/deuterium exchange data on protein folding and stability"
+    authors:
+      - family-names: Pancsa
+        given-names: Rita
+      - family-names: Varadi
+        given-names: Mihaly
+      - family-names: Tompa
+        given-names: Peter
+      - family-names: Vranken
+        given-names: Wim F.
+    journal: "Nucleic Acids Research"
+    volume: 44
+    issue: D1
+    start: D429
+    end: D434
+    year: 2016
+    doi: 10.1093/nar/gkv1185
+  - type: article
+    title: "Evolutionary-scale prediction of atomic-level protein structure with a language model"
+    authors:
+      - family-names: Lin
+        given-names: Zeming
+      - family-names: Akin
+        given-names: Halil
+      - family-names: Rao
+        given-names: Roshan
+    journal: Science
+    volume: 379
+    issue: 6637
+    start: 1123
+    end: 1130
+    year: 2023
+    doi: 10.1126/science.ade2574
+  - type: article
+    title: "Optimization of rates of protein folding: the nucleation-condensation mechanism and its implications"
+    authors:
+      - family-names: Fersht
+        given-names: Alan R.
+    journal: "Proceedings of the National Academy of Sciences"
+    volume: 92
+    issue: 24
+    start: 10869
+    end: 10873
+    year: 1995
+    doi: 10.1073/pnas.92.24.10869
