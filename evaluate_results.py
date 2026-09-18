@@ -1,5 +1,5 @@
 """
-Legacy exploratory comparison of thresholded FoldNucleus candidates with
+Legacy exploratory comparison of thresholded NucleoScan candidates with
 bundled literature-derived high-Φ residue lists.
 
 Start2Fold does not contain Φ-values and is not the source of these lists. The
@@ -178,7 +178,7 @@ def evaluate(summary_path: str, kinetics_path: str) -> None:
                            on="pdb_lower", how="left")
 
     print("=" * 70)
-    print("FoldNucleus — EXPLORATORY HIGH-Φ COMPARISON")
+    print("NucleoScan — EXPLORATORY HIGH-Φ COMPARISON")
     print("=" * 70)
     print(f"Proteins in summary: {len(summary)}")
     print("WARNING: bundled high-Φ lists are approximate and unaudited.")
@@ -426,7 +426,7 @@ def main() -> None:
     base_dir = os.path.dirname(os.path.abspath(__file__))
 
     parser = argparse.ArgumentParser(
-        description=("FoldNucleus — exploratory comparison with approximate "
+        description=("NucleoScan — exploratory comparison with approximate "
                      "bundled high-Φ residue lists.")
     )
     parser.add_argument(

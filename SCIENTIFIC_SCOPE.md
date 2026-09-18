@@ -1,8 +1,8 @@
 # Scientific scope and terminology
 
-## What FoldNucleus reports
+## What NucleoScan reports
 
-FoldNucleus is the historical software name. Its continuous per-residue output,
+NucleoScan's continuous per-residue output,
 stored in the legacy `nucleus_score` column, is interpreted as a
 **fragment-emergence score (FES)**. FES integrates:
 
@@ -14,7 +14,7 @@ The score is intended to rank candidates associated with structure-linked HDX
 protection. The thresholded `is_nucleus` column is retained for file-format
 compatibility and is an exploratory candidate flag.
 
-## What FoldNucleus does not establish
+## What NucleoScan does not establish
 
 - **Prefix length is not folding time.** Structures at lengths L and L + 1 are
   predicted independently. The scan is a sequence-context perturbation series,

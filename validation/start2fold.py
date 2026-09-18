@@ -508,7 +508,7 @@ def _infer_summary(results_path: Path) -> pd.DataFrame:
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Compare FoldNucleus scores with Start2Fold HDX protection classes"
+        description="Compare NucleoScan scores with Start2Fold HDX protection classes"
     )
     parser.add_argument("--results-dir", default="results_esmfold_v2",
                         help="Root results directory")

@@ -1,11 +1,11 @@
-# FoldNucleus
+# NucleoScan
 
 A structure-guided pipeline for ranking residue-level structural emergence in
 single-domain proteins using ESMFold fragment predictions, native-contact
 recovery, backbone agreement, compactness, model confidence and native topology.
 
-> **Scientific scope.** FoldNucleus is the historical software name. The
-> continuous output is interpreted as a **fragment-emergence score (FES)**: a
+> **Scientific scope.** NucleoScan's continuous output is interpreted as a
+> **fragment-emergence score (FES)**: a
 > ranking for structure-linked HDX protection propensity. Start2Fold HDX labels
 > are not a ground truth for folding-nucleus membership, and an N-terminal
 > prefix scan is not a folding-time trajectory. A literal transition-state or
@@ -76,8 +76,8 @@ PDB structures are downloaded automatically from the RCSB on first run.
 ## Installation
 
 ```bash
-git clone https://github.com/ahiriadil-lab/FoldNucleus.git
-cd FoldNucleus
+git clone https://github.com/ahiriadil-lab/NucleoScan.git
+cd NucleoScan
 
 # 1. Install PyTorch (see Requirements above)
 # 2. Install ESMFold
@@ -204,11 +204,11 @@ reproduce the reported numerical results.
 If you use this pipeline, please cite:
 
 ```bibtex
-@software{foldnucleus,
+@software{nucleoscan,
   author  = {Ahiri, Adil},
-  title   = {FoldNucleus},
+  title   = {NucleoScan},
   year    = {2026},
-  url     = {https://github.com/ahiriadil-lab/FoldNucleus}
+  url     = {https://github.com/ahiriadil-lab/NucleoScan}
 }
 ```
 

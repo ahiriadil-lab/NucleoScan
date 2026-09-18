@@ -1,4 +1,4 @@
-"""Central configuration for FoldNucleus."""
+"""Central configuration for NucleoScan."""
 import os
 
 # ---------------------------------------------------------------------------

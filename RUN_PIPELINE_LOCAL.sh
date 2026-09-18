@@ -1,7 +1,7 @@
 #!/bin/bash
 # RUN_PIPELINE_LOCAL.sh
 #
-# Run FoldNucleus locally on all proteins in the dataset.
+# Run NucleoScan locally on all proteins in the dataset.
 # Requires a CUDA-capable GPU and an activated Python environment.
 #
 # Usage:
@@ -30,7 +30,7 @@ python3 -c "import torch; print(f'PyTorch {torch.__version__} | GPU: {torch.cuda
 
 echo ""
 echo "============================================================"
-echo " FoldNucleus"
+echo " NucleoScan"
 echo " $(date)"
 echo "============================================================"
 echo ""

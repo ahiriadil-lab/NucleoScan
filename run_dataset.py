@@ -649,7 +649,7 @@ def run_protein(row, n_decoys, modules, skip_advanced, only_advanced=False,
 
 def main():
     parser = argparse.ArgumentParser(
-        description="FoldNucleus — compute fragment-emergence scores for dataset proteins."
+        description="NucleoScan — compute fragment-emergence scores for dataset proteins."
     )
     parser.add_argument("--proteins", nargs="+",
                         help="Restrict to these protein names (e.g. TrpCage Ubiquitin)")

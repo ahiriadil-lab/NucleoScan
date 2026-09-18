@@ -1,5 +1,5 @@
 """
-Validation module for FoldNucleus.
+Validation module for NucleoScan.
 
 Checks fragment metrics and residue scores for pathological patterns that
 indicate degenerate input data (e.g. insufficient decoys) or

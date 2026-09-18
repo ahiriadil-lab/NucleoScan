@@ -1,5 +1,5 @@
 """
-Exploratory comparison of FoldNucleus scores with residue-level Φ-values.
+Exploratory comparison of NucleoScan scores with residue-level Φ-values.
 
 The legacy ``nucleus_score`` column is interpreted here as the
 fragment-emergence score (FES). A correlation with Φ-values is useful as an

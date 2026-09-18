@@ -1,7 +1,7 @@
 cff-version: 1.2.0
 message: "If you use this software, please cite it as below."
 type: software
-title: "FoldNucleus"
+title: "NucleoScan"
 abstract: >
   A structure-guided pipeline that ranks residue-level structural emergence
   in single-domain proteins using ESMFold fragment predictions, native-contact
@@ -12,7 +12,7 @@ authors:
   - family-names: Ahiri
     given-names: Adil
     email: ahiri.adil@gmail.com
-repository-code: "https://github.com/ahiriadil-lab/FoldNucleus"
+repository-code: "https://github.com/ahiriadil-lab/NucleoScan"
 license: MIT
 date-released: "2026-05-03"
 keywords:

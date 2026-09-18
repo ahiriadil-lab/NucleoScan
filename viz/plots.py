@@ -260,7 +260,7 @@ def plot_composite_summary(residue_df: pd.DataFrame, fragment_df: pd.DataFrame,
         ax.set_ylabel("Fragment index")
         plt.colorbar(im, ax=ax)
 
-    plt.suptitle(f"FoldNucleus Summary — {PDB_ID}", fontsize=13)
+    plt.suptitle(f"NucleoScan Summary — {PDB_ID}", fontsize=13)
     plt.tight_layout()
 
     if out_path is None:
