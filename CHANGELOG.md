@@ -5,7 +5,11 @@ All notable changes to NucleoScan are documented here. The project follows
 
 ## [Unreleased]
 
-No unreleased changes.
+### Changed
+
+- Updated GitHub Actions to their current major versions.
+- Configured conservative Python dependency updates to preserve broad
+  compatibility.
 
 ## [1.1.0] - 2026-09-18
 
