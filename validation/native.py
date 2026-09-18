@@ -32,9 +32,7 @@ import mdtraj as md
 import numpy as np
 import pandas as pd
 
-# ---------------------------------------------------------------------------
 # Constants
-# ---------------------------------------------------------------------------
 
 NATIVE_RMSD_THRESHOLD = 0.3   # nm — standard "native-like" cutoff
 HELIX_DEFINITIONS = {         # 1-indexed residue ranges (inclusive) for HP36
@@ -44,9 +42,7 @@ HELIX_DEFINITIONS = {         # 1-indexed residue ranges (inclusive) for HP36
 }
 
 
-# ---------------------------------------------------------------------------
 # Helpers
-# ---------------------------------------------------------------------------
 
 def _load(path):
     with warnings.catch_warnings():
@@ -97,9 +93,7 @@ def rmsd_helix(native, decoy, res_start_1idx, res_end_1idx):
                           ref_atom_indices=ref_ca[:n]).mean())
 
 
-# ---------------------------------------------------------------------------
 # Per-fragment analysis
-# ---------------------------------------------------------------------------
 
 def analyze_fragment(length, frag_dir, native):
     """
@@ -151,9 +145,7 @@ def analyze_fragment(length, frag_dir, native):
     }
 
 
-# ---------------------------------------------------------------------------
 # Per-helix analysis  (full protein only)
-# ---------------------------------------------------------------------------
 
 def analyze_helices(frag36_dir, native):
     """
@@ -188,9 +180,7 @@ def analyze_helices(frag36_dir, native):
     return pd.DataFrame(rows)
 
 
-# ---------------------------------------------------------------------------
 # Plotting
-# ---------------------------------------------------------------------------
 
 def plot_rmsd_distribution(records, out_path):
     """
@@ -285,9 +275,7 @@ def plot_helix_rmsd(helix_df, out_path):
     print(f"  Helix RMSD plot saved → {out_path}")
 
 
-# ---------------------------------------------------------------------------
 # Main
-# ---------------------------------------------------------------------------
 
 def run(protein_name, results_dir, structures_base, pdb_clean_dir):
     out_dir = os.path.join(results_dir, protein_name)
@@ -315,7 +303,7 @@ def run(protein_name, results_dir, structures_base, pdb_clean_dir):
     if not frag_dirs:
         raise FileNotFoundError(f"No frag* directories in {structs_dir}")
 
-    # ---- Per-fragment RMSD ----
+    # Per-fragment RMSD
     records = []
     for fdir in frag_dirs:
         base    = os.path.basename(fdir)           # e.g. "frag013"
@@ -348,7 +336,7 @@ def run(protein_name, results_dir, structures_base, pdb_clean_dir):
     plot_fraction_native(records,
         out_path=os.path.join(out_dir, "fraction_native_like.png"))
 
-    # ---- Per-helix RMSD (full protein only) ----
+    # Per-helix RMSD for the full-length model
     frag36_dir = os.path.join(structs_dir, "frag36")
     if not os.path.isdir(frag36_dir):
         # try zero-padded

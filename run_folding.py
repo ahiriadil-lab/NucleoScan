@@ -30,9 +30,7 @@ except ImportError:
     _HAS_ESMFOLD = False
 
 
-# ---------------------------------------------------------------------------
-# Single-fragment folding
-# ---------------------------------------------------------------------------
+# Single-fragment inference
 
 def run_abinitio(
     length: int,
@@ -99,9 +97,7 @@ def run_abinitio(
     return pdbs
 
 
-# ---------------------------------------------------------------------------
-# Phase 3 — Enhancement 4: Sliding fragment folding
-# ---------------------------------------------------------------------------
+# Sliding-fragment inference
 
 def run_sliding_fragment(
     start: int,
@@ -184,9 +180,7 @@ def _build_sliding_fragment_list(sequence_length: int = None,
     return pairs
 
 
-# ---------------------------------------------------------------------------
-# Batched query JSON — single OpenFold call for all fragments
-# ---------------------------------------------------------------------------
+# Reuse one ESMFold model across fragments.
 
 def run_all_fragments_batched(
     lengths: list,
@@ -248,9 +242,7 @@ def run_all_fragments_batched(
     return results
 
 
-# ---------------------------------------------------------------------------
 # Main entry point
-# ---------------------------------------------------------------------------
 
 def main(
     dry_run: bool = False,
@@ -281,7 +273,7 @@ def main(
             print(f"ERROR loading ESMFold: {e}", file=sys.stderr, flush=True)
             raise
 
-    # Phase 3 — Sliding mode
+    # Sliding mode
     if FRAGMENT_MODE == "sliding":
         pairs = _build_sliding_fragment_list()
         print(

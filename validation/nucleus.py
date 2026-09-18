@@ -27,9 +27,7 @@ import numpy as np
 import pandas as pd
 
 
-# ---------------------------------------------------------------------------
 # Annotation parser
-# ---------------------------------------------------------------------------
 
 # Structural element tokens that carry numbers but are NOT residue positions.
 # e.g. "Loop1" → label for loop 1; "β2" → name of β-strand 2.
@@ -105,9 +103,7 @@ def parse_nucleus_annotation(nucleus_str) -> set:
     return numbers
 
 
-# ---------------------------------------------------------------------------
 # resSeq ↔ pipeline-index mapping
-# ---------------------------------------------------------------------------
 
 def get_resseq_mapping(pdb_path: str) -> dict:
     """
@@ -150,9 +146,7 @@ def get_resseq_mapping(pdb_path: str) -> dict:
     return mapping
 
 
-# ---------------------------------------------------------------------------
 # Metrics
-# ---------------------------------------------------------------------------
 
 def compute_nucleus_metrics(predicted_nucleus: list, ann_row,
                             resseq_mapping: dict = None) -> dict:
@@ -244,9 +238,7 @@ def compute_nucleus_metrics(predicted_nucleus: list, ann_row,
     }
 
 
-# ---------------------------------------------------------------------------
 # Per-protein runner
-# ---------------------------------------------------------------------------
 
 def run(protein_name: str, results_dir: str, ann_row=None, pdb_path: str = None):
     """
@@ -360,9 +352,7 @@ def run(protein_name: str, results_dir: str, ann_row=None, pdb_path: str = None)
     return metrics
 
 
-# ---------------------------------------------------------------------------
 # Dataset-wide runner
-# ---------------------------------------------------------------------------
 
 def run_all(results_dir: str, annot_path: str = None, pdb_dir: str = None):
     """Run the descriptive comparison for proteins with annotations.
@@ -417,9 +407,7 @@ def run_all(results_dir: str, annot_path: str = None, pdb_dir: str = None):
         print(f"\nMean descriptive F1-score: {avg_f1:.3f}")
 
 
-# ---------------------------------------------------------------------------
 # Main
-# ---------------------------------------------------------------------------
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__)

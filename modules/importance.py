@@ -2,7 +2,7 @@
 Module 4 — Structural Importance.
 
 Assigns a composite structural importance score to each residue, combining
-3 metrics derived from the single OpenFold 3 prediction (no ensemble needed):
+Three metrics derived from the reference structure:
 
   1. Contact degree    — number of contacts above threshold in native contact map
   2. SS persistence    — secondary structure stability (from native DSSP)
@@ -32,9 +32,7 @@ from config import (
 from core.score import normalize_vector
 
 
-# ---------------------------------------------------------------------------
 # Sub-metrics
-# ---------------------------------------------------------------------------
 
 def compute_contact_degree(contact_prob_map, threshold=IMPORTANCE_CONTACT_THRESHOLD):
     """
@@ -100,9 +98,7 @@ def compute_betweenness(contact_map, threshold=IMPORTANCE_CONTACT_THRESHOLD):
     return np.array([bc.get(i, 0.0) for i in range(n_res)])
 
 
-# ---------------------------------------------------------------------------
 # Composite importance (3 metrics)
-# ---------------------------------------------------------------------------
 
 def compute_importance(degree, ss_persist, between, weights=None):
     """
@@ -132,9 +128,7 @@ def compute_importance(degree, ss_persist, between, weights=None):
     return normalize_vector(composite)
 
 
-# ---------------------------------------------------------------------------
-# Correlation with FES (legacy field names retained)
-# ---------------------------------------------------------------------------
+# Correlation with FES
 
 def correlate_with_nucleus(importance_df):
     """
@@ -159,9 +153,7 @@ def correlate_with_nucleus(importance_df):
     }
 
 
-# ---------------------------------------------------------------------------
 # Plotting
-# ---------------------------------------------------------------------------
 
 def plot_importance_vs_nucleus(importance_df, out_path=None):
     """Scatter of importance versus FES; function name is legacy API."""
@@ -198,9 +190,7 @@ def plot_importance_vs_nucleus(importance_df, out_path=None):
     print(f"Importance vs FES scatter saved to {out_path}")
 
 
-# ---------------------------------------------------------------------------
 # Top-level entry: compute from native PDB (no decoys required)
-# ---------------------------------------------------------------------------
 
 def compute_importance_from_native(ref_pdb_path: str) -> pd.DataFrame:
     """

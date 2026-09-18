@@ -1,8 +1,7 @@
 """
 ESMFold inference wrapper for fragment structure prediction.
 
-Replaces run_openfold.py. Generates protein structure predictions using ESMFold
-(language-model-based, natively single-sequence, no MSA required).
+Generates single-sequence protein structure predictions with ESMFold.
 
 Protocol:
   - Loads ESMFold model once (singleton, reused for all fragments)
@@ -36,7 +35,7 @@ _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 # Must be set before "import esm"
 os.environ["OPENFOLD_FORCE_FP16"] = "1"
 
-# Reduce CUDA fragmentation on the 8 GB RTX 3080; must be set before torch loads CUDA
+# Configure CUDA allocation before loading PyTorch.
 os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
 
 try:
@@ -46,7 +45,6 @@ try:
 except ImportError:
     _HAS_ESMFOLD = False
 
-# Model singleton
 _MODEL = None
 
 
@@ -63,10 +61,6 @@ def get_model():
     return _MODEL
 
 
-# ---------------------------------------------------------------------------
-# FASTA helpers
-# ---------------------------------------------------------------------------
-
 def _read_fasta(fasta_path: str) -> Tuple[str, str]:
     """Return (header, sequence) from a single-record FASTA file."""
     header = ""
@@ -80,10 +74,6 @@ def _read_fasta(fasta_path: str) -> Tuple[str, str]:
                 seq_lines.append(line)
     return header, "".join(seq_lines)
 
-
-# ---------------------------------------------------------------------------
-# Sequence manipulation
-# ---------------------------------------------------------------------------
 
 def _add_flanking_glycines(sequence: str, n_flank: int = 15) -> str:
     """Add flanking glycines to sequence: (15G) + sequence + (15G)."""
@@ -119,10 +109,6 @@ def _strip_flanking_glycines(pdb_string: str, n_flank_left: int, n_flank_right: 
 
     return "\n".join(out_lines)
 
-
-# ---------------------------------------------------------------------------
-# pLDDT extraction
-# ---------------------------------------------------------------------------
 
 def extract_plddt(pdb_path: str) -> Tuple[float, np.ndarray]:
     """
@@ -171,10 +157,6 @@ def extract_plddt(pdb_path: str) -> Tuple[float, np.ndarray]:
         return float("nan"), np.array([])
 
 
-# ---------------------------------------------------------------------------
-# Confidence TSV
-# ---------------------------------------------------------------------------
-
 def write_confidence_tsv(
     out_path: str,
     decoy_paths: list,
@@ -190,10 +172,6 @@ def write_confidence_tsv(
             name = os.path.basename(path)
             fh.write(f"{name}\t{plddt:.4f}\n")
 
-
-# ---------------------------------------------------------------------------
-# Single-seed prediction
-# ---------------------------------------------------------------------------
 
 def predict_structure(sequence: str, seed: int = 42) -> str:
     """
@@ -227,10 +205,6 @@ def save_pdb(pdb_string: str, path: str) -> None:
     with open(path, "w") as fh:
         fh.write(pdb_string)
 
-
-# ---------------------------------------------------------------------------
-# Multi-seed prediction + clustering
-# ---------------------------------------------------------------------------
 
 def predict_multi_seed(sequence: str, n_seeds: int = 10, base_seed: int = 42) -> list:
     """
@@ -270,7 +244,7 @@ def cluster_and_select_centroid(
     plddt_filtered = []
 
     with tempfile.TemporaryDirectory(prefix="esmfold_cluster_") as tmp_dir:
-        # Pre-filter by pLDDT using isolated temp files
+        # Use temporary files because mdtraj loads PDB paths.
         for i, pdb_str in enumerate(pdb_strings):
             tmp_file = os.path.join(tmp_dir, f"seed_{i:02d}.pdb")
             save_pdb(pdb_str, tmp_file)
@@ -287,7 +261,6 @@ def cluster_and_select_centroid(
             print(f"    Only 1 seed passed pLDDT filter; using it as centroid.", flush=True)
             return pdb_filtered[0], 0.0, pdb_filtered, plddt_filtered
 
-        # Compute pairwise RMSD
         print(f"    Clustering {len(pdb_filtered)} seeds …", flush=True)
         trajectories = []
         for pdb_str in pdb_filtered:
@@ -348,10 +321,6 @@ def cluster_and_select_centroid(
         return pdb_filtered[centroid_idx], inter_seed_rmsd, pdb_filtered, plddt_filtered
 
 
-# ---------------------------------------------------------------------------
-# Main entry point
-# ---------------------------------------------------------------------------
-
 def fold_fragment(
     fasta_path: str,
     out_dir: str,
@@ -402,7 +371,6 @@ def fold_fragment(
     out_path = os.path.join(out_dir, "decoy_00000.pdb")
     save_pdb(centroid_pdb, out_path)
 
-    # Save individual seeds only when n > 1 (redundant with centroid otherwise)
     if n_seeds > 1:
         for i, pdb_str in enumerate(pdb_filtered):
             stripped = _strip_flanking_glycines(pdb_str, flank_glycines, flank_glycines, frag_len)
@@ -411,7 +379,7 @@ def fold_fragment(
     if score_output is None:
         score_output = os.path.join(out_dir, "scores.tsv")
 
-    # Per-residue pLDDT statistics on the centroid — the uncertainty proxy
+    # pLDDT is the confidence proxy for the selected structure.
     mean_plddt, per_res_plddt = extract_plddt(out_path)
     if per_res_plddt.size > 0:
         plddt_std = float(np.std(per_res_plddt))
@@ -446,10 +414,6 @@ def fold_fragment(
 
     return [out_path]
 
-
-# ---------------------------------------------------------------------------
-# CLI
-# ---------------------------------------------------------------------------
 
 def main():
     import argparse

@@ -7,7 +7,7 @@ structure (which may have missing N-terminal residues).
 
 This module computes the offset between the two sequences so that
 analyze_fragment() can correctly slice both the reference PDB and the
-OpenFold model when they have different lengths.
+ESMFold model when they have different lengths.
 
 Key insight for N-terminal fragments:
   - UniProt positions 0..L-1 are in fragment of length L

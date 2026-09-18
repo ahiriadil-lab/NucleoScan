@@ -1,7 +1,7 @@
 """
 Structural analysis: RMSD, Q-value (native contacts), hydrophobic core compactness.
 
-Three structural quality metrics are computed for the single OpenFold 3 prediction
+Three structural quality metrics are computed for each ESMFold prediction
 per fragment:
 
   RMSD       — backbone RMSD (nm) against the reference structure.
@@ -28,9 +28,6 @@ from config import (
 )
 
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
 
 def _load_traj(pdb_path):
     with warnings.catch_warnings():
@@ -74,9 +71,6 @@ def _ca_atoms(traj):
     return traj.topology.select("name CA")
 
 
-# ---------------------------------------------------------------------------
-# Native contacts
-# ---------------------------------------------------------------------------
 
 def compute_native_contacts(ref_traj, scheme="closest-heavy"):
     """
@@ -116,7 +110,7 @@ def compute_reference_ss(ref_traj):
 
     Returns a 1-D str array of length n_residues:
       'H' = α-helix, 'E' = β-strand, 'C' = coil/other.
-    Used by C2/MANS to determine SS-aware pLDDT thresholds per fragment.
+    Used to select secondary-structure-aware pLDDT thresholds.
     """
     try:
         dssp = md.compute_dssp(ref_traj, simplified=True)[0]  # shape (n_residues,)
@@ -176,16 +170,12 @@ def compute_per_frame_per_residue_contacts(model_traj, native_pairs, cutoff=None
     n_res = model_traj.topology.n_residues
     n_frames = model_traj.n_frames
 
-    # Compute distances for all native pairs
     distances, _ = md.compute_contacts(model_traj, contacts=native_pairs,
                                        scheme='closest-heavy')
-    # (n_frames, n_pairs)
 
-    # Global Q per frame
     formed = (distances <= cutoff)  # (n_frames, n_pairs) bool
     global_q = formed.mean(axis=1)  # (n_frames,)
 
-    # Per-residue per-frame contact fractions
     q_matrix = np.zeros((n_frames, n_res), dtype=float)
     count_matrix = np.zeros((n_frames, n_res), dtype=float)
 
@@ -249,9 +239,6 @@ def compute_q_value(model_traj, native_pairs, total_native, scheme="closest-heav
     return q_global, q_local
 
 
-# ---------------------------------------------------------------------------
-# RMSD
-# ---------------------------------------------------------------------------
 
 def compute_rmsd(ref_traj, model_traj):
     """Backbone RMSD (nm). Falls back to CA-only on atom count mismatch."""
@@ -277,9 +264,6 @@ def compute_rmsd(ref_traj, model_traj):
     return float(rmsd_values.mean())
 
 
-# ---------------------------------------------------------------------------
-# Hydrophobic core
-# ---------------------------------------------------------------------------
 
 def _hydrophobic_sidechain_atoms(traj):
     BACKBONE_NAMES = {"N", "CA", "C", "O", "OXT"}
@@ -302,9 +286,6 @@ def compute_hydrophobic_rg(traj):
     return float(md.compute_rg(sub).mean())
 
 
-# ---------------------------------------------------------------------------
-# Phase 3 — Enhancement 1: Local packing + hydrophobic burial
-# ---------------------------------------------------------------------------
 
 def compute_local_packing(traj, radius=None):
     """
@@ -323,17 +304,15 @@ def compute_local_packing(traj, radius=None):
     top = traj.topology
     n_res = top.n_residues
 
-    # Heavy atom indices only
     heavy_idx = np.array([a.index for a in top.atoms
                           if a.element.symbol != "H"], dtype=int)
     if len(heavy_idx) == 0:
         return np.zeros(n_res, dtype=int)
 
     heavy_sub = traj.atom_slice(heavy_idx)
-    # Map new atom index → residue index in original topology
+    # Preserve original residue indices after atom slicing.
     heavy_res = np.array([top.atom(i).residue.index for i in heavy_idx], dtype=int)
 
-    # Pairwise distances between all heavy atoms (first frame only)
     xyz = heavy_sub.xyz[0]          # (n_heavy, 3) in nm
     packing = np.zeros(n_res, dtype=int)
 
@@ -344,7 +323,6 @@ def compute_local_packing(traj, radius=None):
             continue
         own_xyz   = xyz[own_mask]   # (n_own, 3)
         other_xyz = xyz[other_mask] # (n_other, 3)
-        # Min distance from each other atom to any own atom
         diffs = other_xyz[:, None, :] - own_xyz[None, :, :]  # (n_other, n_own, 3)
         dists = np.sqrt((diffs ** 2).sum(axis=-1)).min(axis=1)  # (n_other,)
         packing[ri] = int((dists < radius).sum())
@@ -372,7 +350,6 @@ def compute_hydrophobic_burial(traj):
     try:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            # sasa shape: (n_frames, n_atoms) in nm²
             sasa = md.shrake_rupley(traj, mode="residue")   # (n_frames, n_res)
         sasa_per_res = sasa[0]  # first (and only) frame
     except Exception:
@@ -391,9 +368,6 @@ def compute_hydrophobic_burial(traj):
     return burial
 
 
-# ---------------------------------------------------------------------------
-# Structure loading
-# ---------------------------------------------------------------------------
 
 def load_ensemble(length, structures_dir=None):
     """Load all PDBs for frag{length:02d}. Returns list of trajectories."""
@@ -420,9 +394,6 @@ def get_pdb_paths(length, structures_dir=None):
     return sorted(glob.glob(os.path.join(out_dir, "*.pdb")))
 
 
-# ---------------------------------------------------------------------------
-# Raw metrics cache (used by advanced analysis modules)
-# ---------------------------------------------------------------------------
 
 def save_raw_metrics(length, rmsds, qs, hydros, out_dir=None):
     """Save per-fragment metric arrays to a compressed HDF5 file."""
@@ -451,9 +422,6 @@ def load_raw_metrics(length, raw_dir=None):
         return np.array(g["rmsds"]), np.array(g["qs"]), np.array(g["hydros"])
 
 
-# ---------------------------------------------------------------------------
-# Fragment analysis — single prediction per fragment
-# ---------------------------------------------------------------------------
 
 def _extract_plddt_safe(pdb_path):
     """Return (plddt_mean, plddt_per_residue) or (nan, None) on failure."""
@@ -481,7 +449,7 @@ def analyze_fragment(length, ref_traj, native_pairs, total_native,
                      save_raw=False, raw_dir=None, direction="N",
                      alignment=None, ref_ss=None):
     """
-    Analyse the single OpenFold 3 prediction for a given fragment length.
+    Analyse one ESMFold prediction for a given fragment length.
 
     Loads decoy_00000.pdb (the single prediction), computes RMSD, Q-value
     and hydrophobic Rg against the reference structure.
@@ -500,7 +468,6 @@ def analyze_fragment(length, ref_traj, native_pairs, total_native,
     ref_res = ref_traj.topology.n_residues
 
     if direction == "C":
-        # C-terminal fragments: always use PDB-only logic (no UniProt offset)
         if length > ref_res:
             length = ref_res
         start_resid = ref_res - length
@@ -510,7 +477,6 @@ def analyze_fragment(length, ref_traj, native_pairs, total_native,
         ensemble_tag = f"fragC{length:02d}"
         ss_dominant = _dominant_ss(ref_ss, start_resid, ref_res)
     elif alignment is not None:
-        # N-terminal fragment from UniProt domain sequence
         pdb_offset = alignment["pdb_offset"]
         pdb_n_res  = alignment["pdb_n_res"]
         K = max(0, min(length - pdb_offset, pdb_n_res))
@@ -537,7 +503,6 @@ def analyze_fragment(length, ref_traj, native_pairs, total_native,
         burial_mean  = 0.0
 
         if K <= 0:
-            # Fragment is entirely in the N-terminal region missing from PDB
             result = {
                 "length":           length,
                 "rmsd_mean":        float("nan"),
@@ -557,11 +522,10 @@ def analyze_fragment(length, ref_traj, native_pairs, total_native,
                 result["plddt_per_residue"] = plddt_per_res
             return result
 
-        # Slice reference: first K PDB residues
         ref_slice = ref_traj.atom_slice(
             ref_traj.topology.select(f"resid < {K}")
         )
-        # Slice model: residues pdb_offset..pdb_offset+K in the OpenFold prediction
+        # Select the model region aligned to the PDB reference.
         model_slice = traj.atom_slice(
             traj.topology.select(f"resid >= {pdb_offset} and resid < {pdb_offset + K}")
         )
@@ -605,7 +569,6 @@ def analyze_fragment(length, ref_traj, native_pairs, total_native,
             result["plddt_per_residue"] = plddt_per_res
         return result
     else:
-        # Legacy: N-terminal PDB-only slice
         if length > ref_res:
             length = ref_res
         ref_slice = ref_traj.atom_slice(
@@ -616,7 +579,6 @@ def analyze_fragment(length, ref_traj, native_pairs, total_native,
 
     out_dir = os.path.join(STRUCTURES_DIR, ensemble_tag)
 
-    # Prefer decoy_00000.pdb; fall back to any pdb in directory
     primary = os.path.join(out_dir, "decoy_00000.pdb")
     if os.path.exists(primary):
         pdb_path = primary
@@ -636,10 +598,9 @@ def analyze_fragment(length, ref_traj, native_pairs, total_native,
     q_global, q_local = compute_q_value(traj, native_pairs, total_native)
     hydro_val = compute_hydrophobic_rg(traj)
 
-    # Phase 3 — Enhancement 2: pLDDT
     plddt_mean, plddt_per_res = _extract_plddt_safe(pdb_path)
 
-    # Phase 3 — Enhancement 1: local packing + hydrophobic burial (only if enabled)
+    # Optional packing metrics
     if LOCAL_PACKING_WEIGHT > 0 or HYDRO_BURIAL_WEIGHT > 0:
         packing = compute_local_packing(traj)
         burial  = compute_hydrophobic_burial(traj)
@@ -660,25 +621,20 @@ def analyze_fragment(length, ref_traj, native_pairs, total_native,
 
     result = {
         "length":        length,
-        # Core metrics (single prediction)
         "rmsd_mean":     rmsd_val,
         "q_mean":        q_global,
         "q_local_mean":  q_local,
         "hydro_rg_mean": hydro_val,
-        # Zero std (single structure)
         "rmsd_std":      0.0,
         "q_std":         0.0,
         "q_local_std":   0.0,
         "hydro_rg_std":  0.0,
         "n_decoys":      1,
-        # Phase 3 additions
         "plddt_mean":       plddt_mean,
         "packing_mean":     packing_mean,
         "hydro_burial_mean": burial_mean,
-        # C2/MANS: dominant secondary structure type for this fragment
         "ss_dominant":      ss_dominant,
     }
-    # Store per-residue pLDDT array if available (used by gradient scoring)
     if plddt_per_res is not None:
         result["plddt_per_residue"] = plddt_per_res
     return result

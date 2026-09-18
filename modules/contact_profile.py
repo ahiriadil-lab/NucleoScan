@@ -20,14 +20,12 @@ from core.analyze import (
 from modules.importance import compute_ss_persistence
 
 
-# ---------------------------------------------------------------------------
 # Contact formation profile
-# ---------------------------------------------------------------------------
 
 def build_contact_formation_profile(ref_traj, native_pairs, lengths=None):
     """
     For each residue i and each fragment length L, compute q_residue(i, L):
-    the fraction of residue i's native contacts formed in the MC ensemble at L.
+    the fraction of residue i's native contacts formed in the prediction ensemble at L.
 
     Parameters
     ----------
@@ -81,18 +79,16 @@ def build_contact_formation_profile(ref_traj, native_pairs, lengths=None):
     return profile, valid_lengths
 
 
-# ---------------------------------------------------------------------------
 # Ab initio contact profile (no native reference)
-# ---------------------------------------------------------------------------
 
 def build_emergent_contact_profile(n_res, lengths=None):
     """
     For each residue i and each fragment length L, compute the emergent contact
     degree: the number of contacts that form with probability >=
-    EMERGENT_CONTACT_CONSISTENCY in the MC ensemble at L.
+    EMERGENT_CONTACT_CONSISTENCY in the prediction ensemble at L.
 
     No native structure reference is used — contacts are discovered purely from
-    the MC ensemble geometry.
+    the prediction-ensemble geometry.
 
     Parameters
     ----------
@@ -143,13 +139,11 @@ def build_emergent_contact_profile(n_res, lengths=None):
     return profile, valid_lengths
 
 
-# ---------------------------------------------------------------------------
 # Ab initio RMSF trajectory (self-referenced, no native)
-# ---------------------------------------------------------------------------
 
 def compute_rmsf_trajectory_ab_initio(n_res, lengths=None):
     """
-    Per-residue RMSF from MC ensembles, self-referenced (no native structure).
+    Per-residue RMSF from prediction ensembles, without a native reference.
 
     For each fragment length L, the concatenated trajectory is superposed on
     frame 0 (internal reference), then md.rmsf(reference=None) computes RMSF
@@ -210,9 +204,7 @@ def compute_rmsf_trajectory_ab_initio(n_res, lengths=None):
     return np.column_stack(rmsf_cols), valid_lengths
 
 
-# ---------------------------------------------------------------------------
 # SS persistence trajectory
-# ---------------------------------------------------------------------------
 
 def compute_ss_trajectory(n_res_or_ref_traj, lengths=None):
     """
@@ -265,9 +257,7 @@ def compute_ss_trajectory(n_res_or_ref_traj, lengths=None):
     return np.column_stack(ss_cols), valid_lengths
 
 
-# ---------------------------------------------------------------------------
 # Onset detection
-# ---------------------------------------------------------------------------
 
 def compute_contact_onset(profile, lengths, threshold=None):
     """

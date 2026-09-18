@@ -35,9 +35,6 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-# ---------------------------------------------------------------------------
-# Paths
-# ---------------------------------------------------------------------------
 BASE_DIR    = os.path.dirname(os.path.abspath(__file__))
 DATASET_DIR = os.path.join(BASE_DIR, "data")
 PDB_DIR     = os.path.join(DATASET_DIR, "pdb_cleaned")
@@ -57,13 +54,11 @@ logging.basicConfig(
 log = logging.getLogger("dataset")
 
 
-# ---------------------------------------------------------------------------
-# Config patching  (import config once, override per protein)
-# ---------------------------------------------------------------------------
+# Per-protein configuration
 
 import config as _cfg
 
-# PDB filenames that deviate from the standard {pdb_id}_{chain}.pdb convention
+# Non-standard PDB filenames
 _PDB_FILENAME_OVERRIDES = {
     "AF-P14621": "AF-P14621-F1-model_v6.pdb",
     # 1mse is a DNA-protein complex; protein is chain C, not A
@@ -76,7 +71,7 @@ def _pdb_path(pdb_id: str, chain) -> str:
     override = _PDB_FILENAME_OVERRIDES.get(pdb_id)
     if override:
         return os.path.join(PDB_DIR, override)
-    # chain may be None, float NaN, or literal "—" for NMR proteins — default to "A"
+    # Missing chain identifiers default to chain A.
     try:
         import math
         chain_safe = "A" if (not chain or str(chain).strip() in ("—", "-", "–", "nan", "")
@@ -118,9 +113,7 @@ def _reload_modules():
             importlib.reload(sys.modules[name])
 
 
-# ---------------------------------------------------------------------------
-# Step helpers (operate on already-patched config)
-# ---------------------------------------------------------------------------
+# Pipeline steps
 
 def step1_copy_pdb_and_fasta(pdb_id, chain, results_dir, uniprot_accession=None,
                             domain_start=None, domain_end=None):
@@ -137,7 +130,7 @@ def step1_copy_pdb_and_fasta(pdb_id, chain, results_dir, uniprot_accession=None,
     """
     src = _pdb_path(pdb_id, chain)
 
-    # Auto-download + clean PDB if missing
+    # Download and clean missing references.
     if not os.path.exists(src):
         log.info(f"  [1] PDB not found, attempting download…")
         try:
@@ -174,7 +167,6 @@ def step1_copy_pdb_and_fasta(pdb_id, chain, results_dir, uniprot_accession=None,
             from core.alignment import compute_alignment
             uniprot_full = fetch_uniprot_sequence(uniprot_accession)
 
-            # Use explicit domain range if provided
             if domain_start and domain_end:
                 domain_seq = uniprot_full[domain_start - 1 : domain_end]
                 sequence = domain_seq
@@ -183,7 +175,6 @@ def step1_copy_pdb_and_fasta(pdb_id, chain, results_dir, uniprot_accession=None,
                     f"explicit domain [{domain_start}–{domain_end}] = {len(sequence)} aa"
                 )
             else:
-                # Fallback to heuristic alignment
                 alignment = compute_alignment(uniprot_full, pdb_seq)
                 pdb_offset = alignment["pdb_offset"]
                 domain_seq = uniprot_full[:pdb_offset + pdb_n_res]
@@ -224,10 +215,10 @@ def step2_generate_fragments(fragments_dir, direction="N"):
 
 
 def step3_run_folding(structures_dir, dry_run=False, batched=False, nstruct=None):
-    """Run OpenFold 3 structure prediction for all fragment lengths."""
+    """Run ESMFold prediction for all fragment lengths."""
     from run_folding import main as folding_main
     folding_main(dry_run=dry_run, batched=batched, nstruct=nstruct)
-    log.info(f"  [3] OpenFold 3 folding complete in {structures_dir}")
+    log.info(f"  [3] ESMFold prediction complete in {structures_dir}")
 
 
 
@@ -253,17 +244,15 @@ def step4_analyze(results_dir, raw_dir, bidirectional=False):
     native_pairs, total_native = compute_native_contacts(ref_traj)
     log.info(f"  [4] Native contacts: {total_native}")
 
-    # C4/MANS: Relative Contact Order (Plaxco 1998)
+    # Relative contact order informs bidirectional score fusion.
     rco = compute_relative_contact_order(ref_traj)
     log.info(f"  [4] RCO={rco:.3f}")
 
-    # C2/MANS: Reference SS for SS-aware pLDDT thresholds
+    # Reference secondary structure selects pLDDT thresholds.
     ref_ss = compute_reference_ss(ref_traj)
 
-    # Read alignment (set by step1 if UniProt was used)
     alignment = getattr(_cfg, "ALIGNMENT_MAP", None)
 
-    # Analyze N-terminal fragments
     metrics_n = []
     for length in range(_cfg.MIN_FRAGMENT_LENGTH, _cfg.MAX_FRAGMENT_LENGTH + 1):
         with _w.catch_warnings():
@@ -280,14 +269,12 @@ def step4_analyze(results_dir, raw_dir, bidirectional=False):
 
     fragment_df = compute_fragment_scores(metrics_n)
 
-    # Analyze C-terminal fragments (bidirectional mode)
     c_fragment_df = pd.DataFrame()
     if bidirectional:
         metrics_c = []
         for length in range(_cfg.MIN_FRAGMENT_LENGTH, _cfg.MAX_FRAGMENT_LENGTH + 1):
             with _w.catch_warnings():
                 _w.simplefilter("ignore")
-                # C-terminal fragments: alignment not applicable (use PDB-only logic)
                 result = analyze_fragment(length, ref_traj, native_pairs, total_native,
                                           save_raw=False, raw_dir=raw_dir, direction="C",
                                           ref_ss=ref_ss)
@@ -297,7 +284,6 @@ def step4_analyze(results_dir, raw_dir, bidirectional=False):
             c_fragment_df = compute_fragment_scores(metrics_c)
             log.info(f"  [4] {len(metrics_c)} C-terminal fragments analyzed.")
 
-    # Load existing importance CSV for combined/unified scoring (if available from prior step-6)
     importance_df = None
     imp_path = os.path.join(results_dir, "structural_importance.csv")
     if os.path.exists(imp_path):
@@ -317,7 +303,6 @@ def step4_analyze(results_dir, raw_dir, bidirectional=False):
     else:
         effective_method = "marginal" if scoring_method == "combined" else scoring_method
 
-    # Compute importance on-demand for unified/combined scoring if not already available
     if (effective_method in ("unified", "combined") and
         (importance_df is None or importance_df.empty)):
         try:
@@ -387,7 +372,6 @@ def step6_advanced(ref_traj, residue_df, raw_dir, results_dir, modules):
                                 out_dir=results_dir, lengths=lengths,
                                 pdb_path=_cfg.REFERENCE_PDB)
 
-    # Contact formation heatmap (ab initio scoring diagnostics)
     try:
         import warnings as _w
         from core.analyze import compute_native_contacts
@@ -411,10 +395,6 @@ def step6_advanced(ref_traj, residue_df, raw_dir, results_dir, modules):
 
     log.info(f"  [6] Advanced analysis done.")
 
-
-# ---------------------------------------------------------------------------
-# Per-protein runner
-# ---------------------------------------------------------------------------
 
 def run_protein(row, n_decoys, modules, skip_advanced, only_advanced=False,
                 run_sensitivity=False, dry_run=False,
@@ -446,15 +426,12 @@ def run_protein(row, n_decoys, modules, skip_advanced, only_advanced=False,
     log.info(f"  PROTEIN: {name}  ({pdb_id})  ~{n_res_ann} aa")
     log.info(f"{'='*60}")
 
-    # Patch config BEFORE any step so all modules see the right paths
-    # (alignment and pdb_n_res are updated after step1 when UniProt is used)
     _patch_config(name, pdb_id, chain, n_res_ann, results_dir,
                   structures_dir, fragments_dir, raw_dir, n_decoys)
     _reload_modules()
     s2f_metrics = {}
 
     if only_advanced:
-        # Skip steps 1-5; derive n_res from the actual PDB file
         from Bio import PDB
         from Bio.PDB import PDBParser
         parser = PDBParser(QUIET=True)
@@ -463,14 +440,11 @@ def run_protein(row, n_decoys, modules, skip_advanced, only_advanced=False,
         chain = next(iter(structure[0].get_chains()))
         n_res = sum(1 for r in chain.get_residues() if PDB.is_aa(r, standard=True))
         _cfg.MAX_FRAGMENT_LENGTH = n_res
-        # Reload with correct MAX_FRAGMENT_LENGTH
         _reload_modules()
-        # Load existing residue_df if available
         res_csv = os.path.join(results_dir, "residue_scores.csv")
         residue_df = pd.read_csv(res_csv) if os.path.exists(res_csv) else pd.DataFrame()
         fragment_df = pd.DataFrame()
     else:
-        # Step 1 — extract sequence & FASTA (UniProt if available)
         try:
             sequence, n_res, alignment, pdb_n_res = step1_copy_pdb_and_fasta(
                 pdb_id, chain, results_dir, uniprot_accession=uniprot_accession,
@@ -480,12 +454,10 @@ def run_protein(row, n_decoys, modules, skip_advanced, only_advanced=False,
             log.error(f"  [1] FAILED: {e}")
             return None
 
-        # Update MAX_FRAGMENT_LENGTH to actual sequence length (UniProt domain or PDB)
         _cfg.MAX_FRAGMENT_LENGTH = n_res
         _cfg.ALIGNMENT_MAP = alignment
         _cfg.PDB_N_RES = pdb_n_res
 
-        # Step 2 — fragments
         try:
             frag_dir = "both" if bidirectional else "N"
             step2_generate_fragments(fragments_dir, direction=frag_dir)
@@ -493,7 +465,6 @@ def run_protein(row, n_decoys, modules, skip_advanced, only_advanced=False,
             log.error(f"  [2] FAILED: {e}")
             return None
 
-        # Step 3 — OpenFold 3 structure prediction
         try:
             step3_run_folding(structures_dir,
                               dry_run=dry_run, batched=batched, nstruct=n_decoys)
@@ -501,7 +472,6 @@ def run_protein(row, n_decoys, modules, skip_advanced, only_advanced=False,
             log.error(f"  [3] FAILED: {e}")
             return None
 
-        # Step 4 — analyze
         try:
             fragment_df, residue_df = step4_analyze(results_dir, raw_dir,
                                                     bidirectional=bidirectional)
@@ -514,20 +484,17 @@ def run_protein(row, n_decoys, modules, skip_advanced, only_advanced=False,
             log.warning(f"  Skipping steps 5-6 (no data).")
             return None
 
-        # Step 5 — visualize
         try:
             step5_visualize(fragment_df, residue_df, results_dir)
         except Exception as e:
             log.error(f"  [5] FAILED: {e}")
 
-        # Step 5b — validation
         try:
             from validation.checks import run_validation
             run_validation(fragment_df, residue_df, results_dir)
         except Exception as e:
             log.error(f"  [5b] Validation FAILED: {e}")
 
-        # Step 5f — comparison with Start2Fold HDX protection (all 6 levels)
         try:
             from validation.start2fold import load_start2fold, evaluate_protein_all_levels
             s2f_json = os.path.join(DATASET_DIR, "start2fold_data.json")
@@ -545,7 +512,6 @@ def run_protein(row, n_decoys, modules, skip_advanced, only_advanced=False,
         except Exception as e:
             log.debug(f"  [5f] Start2Fold comparison skipped: {e}")
 
-        # Step 5c — independently predicted prefix-length structure series
         if build_trajectory:
             try:
                 from modules.trajectory import (build_progressive_trajectory,
@@ -560,7 +526,6 @@ def run_protein(row, n_decoys, modules, skip_advanced, only_advanced=False,
             except Exception as e:
                 log.error(f"  [5c] Trajectory FAILED: {e}")
 
-        # Step 5d — construction dashboard
         if dashboard and not fragment_df.empty:
             try:
                 from viz.plots import plot_construction_dashboard
@@ -571,7 +536,6 @@ def run_protein(row, n_decoys, modules, skip_advanced, only_advanced=False,
             except Exception as e:
                 log.error(f"  [5d] Dashboard FAILED: {e}")
 
-    # Step 5c — sensitivity analysis
     if run_sensitivity and not fragment_df.empty:
         try:
             from modules.sensitivity import run_sensitivity_analysis
@@ -579,7 +543,6 @@ def run_protein(row, n_decoys, modules, skip_advanced, only_advanced=False,
         except Exception as e:
             log.error(f"  [5c] Sensitivity FAILED: {e}")
 
-    # Step 6 — advanced analysis
     if not skip_advanced and modules:
         try:
             import warnings as _w
@@ -591,10 +554,10 @@ def run_protein(row, n_decoys, modules, skip_advanced, only_advanced=False,
         except Exception as e:
             log.error(f"  [6] FAILED: {e}")
 
-    # Summary row — including global metrics (§6.3)
+    # Per-protein summary
     nucleus = residue_df[residue_df["is_nucleus"]]["residue"].tolist() if not residue_df.empty else []
 
-    # Optional legacy comparison with heterogeneous residue annotations.
+    # Optional comparison with external residue annotations.
     nucleus_precision = nucleus_recall = nucleus_f1 = float("nan")
     if run_annotation_comparison:
         try:
@@ -612,7 +575,6 @@ def run_protein(row, n_decoys, modules, skip_advanced, only_advanced=False,
         except Exception:
             pass
 
-    # Compute rmsd_min_full for the full-length fragment (compare_to_native)
     rmsd_min_full = float("nan")
     native_csv = os.path.join(results_dir, "compare_to_native.csv")
     if os.path.exists(native_csv):
@@ -643,10 +605,6 @@ def run_protein(row, n_decoys, modules, skip_advanced, only_advanced=False,
     return summary
 
 
-# ---------------------------------------------------------------------------
-# Main
-# ---------------------------------------------------------------------------
-
 def main():
     parser = argparse.ArgumentParser(
         description="NucleoScan — compute fragment-emergence scores for dataset proteins."
@@ -670,7 +628,7 @@ def main():
     parser.add_argument("--dry-run", action="store_true",
                         help="Print folding commands without executing")
     parser.add_argument("--batched", action="store_true",
-                        help="Submit all fragments in one OpenFold 3 call")
+                        help="Reuse one ESMFold model across all fragments")
     parser.add_argument("--no-bidirectional", dest="bidirectional",
                         action="store_false", default=False,
                         help="Disable bidirectional scoring (disabled by default)")
@@ -686,7 +644,7 @@ def main():
                         help=("Run legacy exploratory candidate/reference overlap "
                               "analysis; not folding-nucleus validation"))
     parser.add_argument("--low-mem", action="store_true",
-                        help="Enable OpenFold 3 low-memory GPU preset")
+                        help="Enable the low-memory GPU preset")
     parser.add_argument("--trajectory", action="store_true",
                         help=("Build an animated prefix-length structure series; "
                               "states are not folding time"))
@@ -707,7 +665,6 @@ def main():
                         help="Label for this run (results_{label}/, structures_{label}/)")
     args = parser.parse_args()
 
-    # Redirect all outputs to results_{label}/ when --run-label is set
     global RESULTS_BASE
     if args.run_label:
         RESULTS_BASE = os.path.join(BASE_DIR, f"results_{args.run_label}")
@@ -745,19 +702,17 @@ def main():
             log.error(f"No proteins matched: {args.proteins}")
             sys.exit(1)
 
-    # Apply scoring method override from CLI
     if args.scoring_method is not None:
         _cfg.SCORING_METHOD = args.scoring_method
         log.info(f"Scoring method overridden to: {args.scoring_method}")
 
     log.info(f"Dataset: {len(df_ann)} proteins | "
-             f"nstruct={args.n_decoys} | mode=OpenFold3 | modules={args.modules} | "
+             f"nstruct={args.n_decoys} | mode=ESMFold | modules={args.modules} | "
              f"only_advanced={args.only_advanced} | scoring={_cfg.SCORING_METHOD}")
 
     summary_rows = []
     t0 = time.time()
 
-    # Build kwargs dict shared by all protein runs
     _run_kwargs = dict(
         n_decoys=args.n_decoys,
         modules=args.modules,
@@ -777,7 +732,6 @@ def main():
 
     n_parallel = max(1, args.parallel_proteins)
     if n_parallel == 1:
-        # Sequential (original behaviour)
         completed_rows = []
         for row in rows_list:
             result = run_protein(row, **_run_kwargs)
@@ -785,12 +739,10 @@ def main():
                 summary_rows.append(result)
             completed_rows.append(row)
     else:
-        # Parallel across proteins — each protein is a separate process so
-        # config patching (monkey-patch of _cfg) stays isolated per child.
+        # Process isolation prevents shared per-protein configuration.
         log.info(f"Parallel mode: {n_parallel} proteins simultaneously.")
         completed_rows = list(rows_list)  # for post-processing below
 
-        # Use spawn context so children don't inherit stale module state
         import multiprocessing as _mp
         ctx = _mp.get_context("spawn")
         with ProcessPoolExecutor(max_workers=n_parallel, mp_context=ctx) as pool:
@@ -809,11 +761,9 @@ def main():
                 except Exception as exc:
                     log.error(f"  [{name}] FAILED in parallel run: {exc}")
 
-    # Optional post-processing (native comparison / Φ comparison / annotation overlap)
     for row in completed_rows:
         name = row["Name"]
 
-        # Step 7a — compare_to_native
         if args.compare_native:
             try:
                 from validation.native import run as ctn_run
@@ -824,7 +774,6 @@ def main():
             except Exception as e:
                 log.error(f"  [7a] compare_to_native FAILED for {name}: {e}")
 
-        # Step 7b — phi_value_comparison
         if args.phi_compare:
             try:
                 from validation.phi_values import run as phi_run
@@ -833,7 +782,6 @@ def main():
             except Exception as e:
                 log.error(f"  [7b] phi_value_comparison FAILED for {name}: {e}")
 
-        # Step 7c — validate_nucleus
         if args.validate_nucleus:
             try:
                 from validation.nucleus import run as vn_run
@@ -847,7 +795,6 @@ def main():
             except Exception as e:
                 log.error(f"  [7c] validate_nucleus FAILED for {name}: {e}")
 
-    # Global summary
     elapsed = time.time() - t0
     log.info(f"\n{'='*60}")
     log.info(f"DATASET RUN COMPLETE  ({elapsed:.1f}s)")

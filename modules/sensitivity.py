@@ -80,7 +80,7 @@ def run_sensitivity_analysis(fragment_df: pd.DataFrame,
         param_label = "SCORE_THRESHOLD"
 
     sweep_rows  = []
-    # Matrix uses the legacy is_nucleus flag (1 = selected candidate).
+    # One indicates a selected candidate.
     nucleus_matrix = np.zeros((n_res, len(param_values)), dtype=np.uint8)
 
     for v_idx, param_val in enumerate(param_values):
@@ -109,7 +109,7 @@ def run_sensitivity_analysis(fragment_df: pd.DataFrame,
     sweep_df.to_csv(csv_path, index=False)
     print(f"Sensitivity sweep saved to {csv_path}")
 
-    # --- Plot 1: heatmap residue × parameter ---
+    # Candidate heatmap
     fig, ax = plt.subplots(figsize=(max(8, len(param_values) * 0.5),
                                     max(4, n_res * 0.15 + 1)))
     im = ax.imshow(nucleus_matrix, aspect="auto", cmap="RdBu_r",
@@ -129,7 +129,7 @@ def run_sensitivity_analysis(fragment_df: pd.DataFrame,
     plt.close(fig)
     print(f"Sensitivity heatmap saved to {hm_path}")
 
-    # --- Plot 2: nb_nucleus vs parameter ---
+    # Candidate count by parameter
     fig, ax = plt.subplots(figsize=(8, 4))
     ax.plot(sweep_df[param_label], sweep_df["n_nucleus"],
             marker="o", color="#e74c3c")

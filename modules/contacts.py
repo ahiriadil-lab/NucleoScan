@@ -37,9 +37,7 @@ from core.analyze import _load_traj, load_ensemble, get_pdb_paths
 _CMAP_DIR = os.path.join(RESULTS_DIR, "contact_maps")
 
 
-# ---------------------------------------------------------------------------
 # Native contact map
-# ---------------------------------------------------------------------------
 
 def compute_native_contact_map(ref_traj, cutoff=CONTACT_CUTOFF_NM):
     """
@@ -62,9 +60,7 @@ def compute_native_contact_map(ref_traj, cutoff=CONTACT_CUTOFF_NM):
     return native_map
 
 
-# ---------------------------------------------------------------------------
 # Contact map for a single structure
-# ---------------------------------------------------------------------------
 
 def compute_contact_map_single(traj, n_res, cutoff=CONTACT_CUTOFF_NM):
     """
@@ -97,9 +93,7 @@ def compute_contact_map_single(traj, n_res, cutoff=CONTACT_CUTOFF_NM):
     return cmap
 
 
-# ---------------------------------------------------------------------------
 # Compute & cache maps for all fragments
-# ---------------------------------------------------------------------------
 
 def compute_all_contact_maps(ref_traj, lengths=None, chunk_size=10):
     """
@@ -160,9 +154,7 @@ def load_contact_map(length, cmap_dir=None):
         return np.array(f[key]["prob_map"])
 
 
-# ---------------------------------------------------------------------------
 # Contact formation tracking
-# ---------------------------------------------------------------------------
 
 def compute_contact_formation(cmaps, native_map, lengths):
     """
@@ -198,9 +190,7 @@ def compute_contact_formation(cmaps, native_map, lengths):
     return pd.DataFrame(rows)
 
 
-# ---------------------------------------------------------------------------
 # Plotting
-# ---------------------------------------------------------------------------
 
 def plot_contact_map(matrix, title, out_path, cmap="Blues"):
     """Heatmap of a contact map (native binary or probability)."""
@@ -241,9 +231,7 @@ def plot_contact_formation(formation_df, out_path=None):
     print(f"Contact formation plot saved to {out_path}")
 
 
-# ---------------------------------------------------------------------------
-# Phase 3 — Enhancement 3: per-residue contact formation rate
-# ---------------------------------------------------------------------------
+# Per-residue contact-formation rate
 
 def compute_per_residue_contact_formation_rate(
         cmaps: dict,
@@ -310,9 +298,7 @@ def compute_per_residue_contact_formation_rate(
     return rate
 
 
-# ---------------------------------------------------------------------------
 # Top-level entry point
-# ---------------------------------------------------------------------------
 
 def run_contact_map_analysis(ref_traj, lengths=None, out_dir=None,
                              selected=None):

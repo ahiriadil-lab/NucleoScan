@@ -33,9 +33,7 @@ import pandas as pd
 from scipy import stats
 
 
-# ---------------------------------------------------------------------------
 # Approximate Φ-value examples (1-indexed positions; smoke tests only)
-# ---------------------------------------------------------------------------
 
 # Villin HP36 — Kubelka et al. (2003), Brewer et al. (2005)
 HP36_PHI_VALUES = {
@@ -146,9 +144,7 @@ _CITATIONS = {
 }
 
 
-# ---------------------------------------------------------------------------
 # Core comparison
-# ---------------------------------------------------------------------------
 
 def load_predictions(results_dir, protein_name):
     """
@@ -239,9 +235,7 @@ def compute_correlations(df, score_col, phi_col="phi_exp"):
     }
 
 
-# ---------------------------------------------------------------------------
 # Plotting
-# ---------------------------------------------------------------------------
 
 def plot_phi_scatter(df, out_path, protein_name):
     """
@@ -366,9 +360,7 @@ def plot_phi_profile(df, out_path, protein_name):
     print(f"  Phi profile plot saved → {out_path}")
 
 
-# ---------------------------------------------------------------------------
 # Text report
-# ---------------------------------------------------------------------------
 
 def write_report(df, corr_nucleus, corr_imp, protein_name, out_path,
                  corr_coop=None, corr_committor_coop=None):
@@ -425,9 +417,7 @@ def write_report(df, corr_nucleus, corr_imp, protein_name, out_path,
     print("\n" + text)
 
 
-# ---------------------------------------------------------------------------
 # Main
-# ---------------------------------------------------------------------------
 
 def run(protein_name, results_dir, pdb_id=None):
     print(f"\n=== Exploratory Φ-value comparison for {protein_name} ===")

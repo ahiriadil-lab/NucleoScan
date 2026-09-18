@@ -26,9 +26,7 @@ import mdtraj as md
 import numpy as np
 
 
-# ---------------------------------------------------------------------------
 # Helpers
-# ---------------------------------------------------------------------------
 
 def _load(path: str) -> md.Trajectory:
     with warnings.catch_warnings():
@@ -50,9 +48,7 @@ def _ca_rmsd(traj: md.Trajectory, ref_traj: md.Trajectory) -> float:
         return float(md.rmsd(sub, ref_sub, frame=0)[0])
 
 
-# ---------------------------------------------------------------------------
 # Best-decoy selection
-# ---------------------------------------------------------------------------
 
 def select_best_decoy(fragment_dir: str, ref_traj: md.Trajectory) -> str:
     """
@@ -78,9 +74,7 @@ def select_best_decoy(fragment_dir: str, ref_traj: md.Trajectory) -> str:
     return best_path
 
 
-# ---------------------------------------------------------------------------
 # Multi-model PDB fragment series
-# ---------------------------------------------------------------------------
 
 def build_progressive_trajectory(structures_dir: str,
                                   ref_pdb: str,
@@ -142,9 +136,7 @@ def build_progressive_trajectory(structures_dir: str,
     return out_pdb
 
 
-# ---------------------------------------------------------------------------
 # PyMOL script for the fragment series
-# ---------------------------------------------------------------------------
 
 def generate_pymol_script(trajectory_pdb: str,
                            ref_pdb: str,

@@ -305,7 +305,7 @@ def plot_construction_dashboard(structures_dir: str,
     if out_path is None:
         out_path = os.path.join(RESULTS_DIR, "construction_dashboard.png")
 
-    # ---- Load native ----
+    # Native structure
     with _w.catch_warnings():
         _w.simplefilter("ignore")
         ref_traj = md.load(ref_pdb)
@@ -313,7 +313,7 @@ def plot_construction_dashboard(structures_dir: str,
     ref_ca_idx = ref_traj.topology.select("name CA")
     ref_ca     = ref_traj.xyz[0, ref_ca_idx, :]  # (N, 3) in nm
 
-    # ---- Sample fragment lengths ----
+    # Representative fragment lengths
     import glob as _glob
     frag_dirs = sorted(_glob.glob(os.path.join(structures_dir, "frag[0-9]*")))
     if not frag_dirs:
@@ -326,7 +326,7 @@ def plot_construction_dashboard(structures_dir: str,
     if n_col == 0:
         return
 
-    # ---- Fit PCA on native Cα coordinates ----
+    # PCA reference from native Cα coordinates
     if _has_sklearn and len(ref_ca) >= 3:
         pca = PCA(n_components=2)
         pca.fit(ref_ca)
@@ -336,7 +336,7 @@ def plot_construction_dashboard(structures_dir: str,
         ref_2d = ref_ca[:, :2]
         pca    = None
 
-    # ---- Build figure ----
+    # Figure layout
     fig, axes = plt.subplots(2, n_col, figsize=(3 * n_col, 7))
     if n_col == 1:
         axes = axes[:, np.newaxis]  # ensure 2D indexing
@@ -356,7 +356,7 @@ def plot_construction_dashboard(structures_dir: str,
         ax_top = axes[0, col_idx]
         ax_bot = axes[1, col_idx]
 
-        # ---- Row 1: 2D PCA of Cα ----
+        # Cα projection
         best_path = select_best_decoy(frag_dir, ref_traj)
         if best_path is not None:
             try:
@@ -403,7 +403,7 @@ def plot_construction_dashboard(structures_dir: str,
         if col_idx == 0:
             ax_top.set_ylabel("PC2", fontsize=7)
 
-        # ---- Row 2: RMSD / Q curve with marker at this fragment ----
+        # RMSD and Q profiles
         if not fragment_df.empty:
             lengths = fragment_df["length"].values
             if rmsd_col:

@@ -53,9 +53,7 @@ from validation.advanced_metrics import (
 )
 
 
-# ---------------------------------------------------------------------------
 # Parser
-# ---------------------------------------------------------------------------
 
 def load_start2fold(path: str) -> dict:
     """
@@ -196,9 +194,7 @@ def _parse_residues(residues_raw: str, sequence: str, pdb: str) -> set:
     return positions
 
 
-# ---------------------------------------------------------------------------
 # Evaluation per protein
-# ---------------------------------------------------------------------------
 
 # Folding axis (kinetic) — ordered early→late
 FOLDING_LEVELS   = ["early", "intermediate", "late"]
@@ -330,9 +326,7 @@ def evaluate_protein_all_levels(
     return result
 
 
-# ---------------------------------------------------------------------------
 # Dataset-level runners
-# ---------------------------------------------------------------------------
 
 def _load_summary(results_path: Path) -> pd.DataFrame:
     summary_csv = results_path / "dataset_summary.csv"
@@ -502,9 +496,7 @@ def _infer_summary(results_path: Path) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-# ---------------------------------------------------------------------------
 # CLI
-# ---------------------------------------------------------------------------
 
 def main():
     parser = argparse.ArgumentParser(

@@ -15,9 +15,7 @@ import numpy as np
 import pandas as pd
 
 
-# ---------------------------------------------------------------------------
 # Helpers
-# ---------------------------------------------------------------------------
 
 _WARN = "WARNING"
 _OK   = "OK"
@@ -31,9 +29,7 @@ def _check(condition: bool, code: str, message: str) -> dict:
     }
 
 
-# ---------------------------------------------------------------------------
 # 1. Fragment-level metrics
-# ---------------------------------------------------------------------------
 
 def validate_fragment_metrics(fragment_df: pd.DataFrame) -> list:
     """
@@ -57,7 +53,7 @@ def validate_fragment_metrics(fragment_df: pd.DataFrame) -> list:
         np.all(q_vals == 0),
         "FM-01",
         "All Q-values are 0 — no native contacts detected. "
-        "Likely cause: OpenFold 3 output or wrong reference structure.",
+        "Likely cause: invalid ESMFold output or wrong reference structure.",
     ))
 
     # FM-02
@@ -66,7 +62,7 @@ def validate_fragment_metrics(fragment_df: pd.DataFrame) -> list:
         np.all(np.isnan(hydro)),
         "FM-02",
         "hydro_rg is NaN for all fragments — no hydrophobic sidechain atoms found. "
-        "Check OpenFold 3 output.",
+        "Check the ESMFold output.",
     ))
 
     # FM-03
@@ -103,9 +99,7 @@ def validate_fragment_metrics(fragment_df: pd.DataFrame) -> list:
     return issues
 
 
-# ---------------------------------------------------------------------------
 # 2. Residue-level scores
-# ---------------------------------------------------------------------------
 
 def validate_residue_scores(residue_df: pd.DataFrame) -> list:
     """
@@ -175,9 +169,7 @@ def validate_residue_scores(residue_df: pd.DataFrame) -> list:
     return issues
 
 
-# ---------------------------------------------------------------------------
 # 3. Advanced results
-# ---------------------------------------------------------------------------
 
 def validate_advanced_results(results_dir: str) -> list:
     """

@@ -28,9 +28,7 @@ from core.analyze import (
 from core.score import normalize_vector
 
 
-# ---------------------------------------------------------------------------
-# Intermediate-contact frame selection (legacy TSE API name)
-# ---------------------------------------------------------------------------
+# Intermediate-contact frame selection
 
 def extract_tse_frames(length, use_wide=False):
     """
@@ -84,9 +82,7 @@ def _join_compatible_frames(frames):
     return md.join(compatible, check_topology=False)
 
 
-# ---------------------------------------------------------------------------
-# Per-residue Q in the intermediate-contact subset (legacy TSE name)
-# ---------------------------------------------------------------------------
+# Per-residue Q in the intermediate-contact subset
 
 def compute_per_residue_q_tse(length, tse_mask, native_pairs, n_res_full):
     """
@@ -137,9 +133,7 @@ def compute_per_residue_q_tse(length, tse_mask, native_pairs, n_res_full):
     return q_tse
 
 
-# ---------------------------------------------------------------------------
 # Long-range contact fraction in the intermediate-contact subset
-# ---------------------------------------------------------------------------
 
 def compute_long_range_contact_fraction_tse(length, tse_mask, native_pairs, n_res_full,
                                             seq_sep=None):
@@ -205,9 +199,7 @@ def compute_long_range_contact_fraction_tse(length, tse_mask, native_pairs, n_re
     return lr_fraction
 
 
-# ---------------------------------------------------------------------------
 # Cooperativity Correlation
-# ---------------------------------------------------------------------------
 
 def compute_cooperativity_correlation(length, native_pairs, n_res_full):
     """
@@ -268,9 +260,7 @@ def compute_cooperativity_correlation(length, native_pairs, n_res_full):
     return coop_corr
 
 
-# ---------------------------------------------------------------------------
 # Orchestrator
-# ---------------------------------------------------------------------------
 
 def compute_cooperative_signals(max_length, native_pairs, n_res):
     """

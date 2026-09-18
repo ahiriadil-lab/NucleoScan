@@ -25,29 +25,20 @@ from config import (
     adaptive_sigma_factor,
     SCORING_COMBINED_W_MARGINAL, SCORING_COMBINED_W_IMPORTANCE,
     CONTACT_ONSET_THRESHOLD, EMERGENT_CONTACT_DEGREE_ONSET,
-    # Phase 3 parameters
     LOCAL_PACKING_WEIGHT, HYDRO_BURIAL_WEIGHT,
     PLDDT_WEIGHT, PLDDT_GRADIENT_WEIGHT,
     CONTACT_RATE_WEIGHT,
     FRAGMENT_MODE, FRAGMENT_AVERAGING, PLDDT_WEIGHTED_AVERAGING,
-    # ESMFold pLDDT confidence filtering
     PLDDT_REJECT_THRESHOLD, PLDDT_REDUCED_WEIGHT_THRESHOLD, PLDDT_REDUCED_WEIGHT_FACTOR,
-    # C2/MANS: SS-aware pLDDT thresholds (Akdel 2022)
     PLDDT_BETA_REJECT_THRESHOLD, PLDDT_BETA_REDUCED_THRESHOLD,
     PLDDT_ALPHA_REJECT_THRESHOLD, PLDDT_ALPHA_REDUCED_THRESHOLD,
     PLDDT_COIL_REJECT_THRESHOLD, PLDDT_COIL_REDUCED_THRESHOLD,
-    # C5/MANS: FDR target (Benjamini 1995)
     FDR_TARGET,
-    # Unified scoring parameters
     UNIFIED_W_KINETIC, UNIFIED_W_COOPERATIVE, UNIFIED_W_TOPOLOGICAL,
     UNIFIED_COOP_W_TSE, UNIFIED_COOP_W_LR, UNIFIED_COOP_W_COOP,
     TSE_MIN_FRAMES, TSE_MIN_FRAMES_PARTIAL,
 )
 
-
-# ---------------------------------------------------------------------------
-# Normalization helper
-# ---------------------------------------------------------------------------
 
 def normalize_vector(v: np.ndarray) -> np.ndarray:
     """
@@ -60,10 +51,6 @@ def normalize_vector(v: np.ndarray) -> np.ndarray:
         return np.full_like(v, 0.5)
     return (v - lo) / (hi - lo)
 
-
-# ---------------------------------------------------------------------------
-# Fragment quality score
-# ---------------------------------------------------------------------------
 
 def _effective_q_weight(fragment_length: int, n_residues: int) -> float:
     """Return Q_WEIGHT (constant — Q_LOCAL_DAMPEN removed)."""
@@ -90,12 +77,8 @@ def compute_fragment_scores(metrics: list) -> pd.DataFrame:
     df = pd.DataFrame(metrics)
     lengths = df["length"].values.astype(int)
 
-    # Normalize each metric across the full vector at once
     norm_rmsd = normalize_vector(df["rmsd_mean"].values)
-    # Use q_local_mean (contacts formed / contacts available in fragment) rather than
-    # q_mean (q_global = contacts formed / total native contacts in full protein).
-    # q_global grows monotonically with fragment length, masking folding quality signal.
-    # q_local is length-independent and reflects how well the fragment folds locally.
+    # Local Q avoids the fragment-length bias of global Q.
     q_col = "q_local_mean" if "q_local_mean" in df.columns else "q_mean"
     norm_q = normalize_vector(df[q_col].values)
 
@@ -106,8 +89,7 @@ def compute_fragment_scores(metrics: list) -> pd.DataFrame:
         norm_hydro = normalize_vector(np.where(np.isnan(hydro),
                                                 np.nanmean(hydro), hydro))
 
-    # Invert RMSD and hydro_rg (lower is better → invert so higher = better)
-    # Q is weighted more heavily as the most biologically significant metric
+    # Invert metrics where lower values are better.
     n_res = int(lengths.max())  # total protein length (proxy)
     q_weights = np.array([_effective_q_weight(int(l), n_res) for l in lengths])
     df["score"] = q_weights * norm_q + (1.0 - norm_rmsd) + (1.0 - norm_hydro)
@@ -115,12 +97,7 @@ def compute_fragment_scores(metrics: list) -> pd.DataFrame:
     df["norm_q"] = norm_q
     df["norm_hydro_rg"] = norm_hydro
 
-    # C2/MANS: SS-aware pLDDT filtering (Akdel 2022, Jumper 2021).
-    # β-strands in isolation have systematically lower pLDDT than helices.
-    # Guard: SS-soft thresholds apply only for fragments ≥ 8 aa.
-    # Very short fragments (< 8 aa) of any SS type require stricter pLDDT ≥ 40
-    # because ESMFold cannot reliably distinguish structured from random coil
-    # at these lengths (Lin 2023, SI Fig S7 on fragment length sensitivity).
+    # Apply secondary-structure-aware thresholds only to fragments ≥ 8 residues.
     _MIN_SS_AWARE_LEN = 8
     if "plddt_mean" in df.columns:
         plddt = df["plddt_mean"].values.astype(float)
@@ -146,17 +123,14 @@ def compute_fragment_scores(metrics: list) -> pd.DataFrame:
         df["plddt_confidence_weight"] = plddt_weight
         df["score"] *= plddt_weight
 
-    # Phase 3 — Enhancement 2: mean pLDDT contribution to composite score
     if PLDDT_WEIGHT > 0 and "plddt_mean" in df.columns:
         plddt_vals = df["plddt_mean"].values.astype(float)
-        # pLDDT is in [0, 100]; higher = better
         if not np.all(np.isnan(plddt_vals)):
             norm_plddt = normalize_vector(np.where(np.isnan(plddt_vals),
                                                     np.nanmean(plddt_vals), plddt_vals))
             df["score"] += PLDDT_WEIGHT * norm_plddt
             df["norm_plddt"] = norm_plddt
 
-    # Phase 3 — Enhancement 1: local packing contribution
     if LOCAL_PACKING_WEIGHT > 0 and "packing_mean" in df.columns:
         packing_vals = df["packing_mean"].values.astype(float)
         if np.any(packing_vals > 0):
@@ -164,7 +138,6 @@ def compute_fragment_scores(metrics: list) -> pd.DataFrame:
             df["score"] += LOCAL_PACKING_WEIGHT * norm_packing
             df["norm_packing"] = norm_packing
 
-    # Phase 3 — Enhancement 1: hydrophobic burial contribution
     if HYDRO_BURIAL_WEIGHT > 0 and "hydro_burial_mean" in df.columns:
         burial_vals = df["hydro_burial_mean"].values.astype(float)
         if np.any(burial_vals > 0):
@@ -174,10 +147,6 @@ def compute_fragment_scores(metrics: list) -> pd.DataFrame:
 
     return df
 
-
-# ---------------------------------------------------------------------------
-# Per-residue scoring methods
-# ---------------------------------------------------------------------------
 
 def score_residues_sliding_window(fragment_df: pd.DataFrame,
                                   max_length: int) -> pd.DataFrame:
@@ -224,12 +193,7 @@ def score_residues_marginal(fragment_df: pd.DataFrame,
         return float(v.mean()) if hasattr(v, "mean") else float(v)
     score_by_len = {l: _to_scalar(scores.loc[l]) for l in lengths}
 
-    # Build delta per residue: delta(i) = score(i) - score(i-1)
-    # Use q_local_mean (contacts formed / contacts available in fragment) rather than
-    # q_mean (q_global) for the MIN_Q_SIGNAL baseline.  q_global grows monotonically with
-    # fragment length: even a 6-aa fragment with all local contacts formed has
-    # q_global ≈ 0.014 on a 36-aa protein → wrongly classified as "no signal".
-    # q_local is length-independent and correctly identifies fragments with real contacts.
+    # Local Q determines where meaningful marginal scoring begins.
     q_signal_col = "q_local_mean" if "q_local_mean" in fdf.columns else "q_mean"
     q_by_len = fdf[q_signal_col] if q_signal_col in fdf.columns else None
     if q_by_len is not None:
@@ -241,17 +205,12 @@ def score_residues_marginal(fragment_df: pd.DataFrame,
             effective_min = first_q_lengths[0] - 1  # last length with q=0
             min_len = max(lengths[0], effective_min)
         else:
-            # All Q below MIN_Q_SIGNAL (e.g. β-sandwiches where ESMFold
-            # underpredicts inter-strand contacts for short fragments).
-            # Fall back to RMSD/hydro_rg marginal signal rather than
-            # declaring the entire protein as baseline — otherwise the marginal
-            # axis becomes flat and the topological axis over-predicts.
+            # Preserve RMSD/Rg information when local Q is uniformly weak.
             min_len = lengths[0]  # first fragment sets the reference baseline
     else:
         min_len = lengths[0]  # fallback: no q_mean column
 
     prev_score = score_by_len.get(min_len, score_by_len[lengths[0]])
-    # If prev_score is NaN (fragment before PDB region), find first valid score
     if prev_score != prev_score:  # NaN check
         valid_scores = [(l, s) for l, s in score_by_len.items()
                         if s == s and l >= min_len]  # s==s is NaN-safe
@@ -261,22 +220,18 @@ def score_residues_marginal(fragment_df: pd.DataFrame,
             prev_score = 0.0
 
     records = []
-    # Baseline residues: no marginal information
     for res_i in range(1, min_len + 1):
         records.append({"residue": res_i, "nucleus_score": 0.0})
 
-    # Marginal scoring for residues beyond shortest fragment
     for res_i in range(min_len + 1, max_length + 1):
         if res_i in score_by_len:
             cur_score = score_by_len[res_i]
-            # Skip NaN scores (fragments with no PDB overlap yet)
             if cur_score != cur_score:  # NaN check
                 records.append({"residue": res_i, "nucleus_score": 0.0})
                 continue
             delta = cur_score - prev_score
             prev_score = cur_score
         else:
-            # Interpolate: use the nearest available fragment score
             available = [l for l in lengths if l >= res_i and
                          score_by_len[l] == score_by_len[l]]  # skip NaN
             if available:
@@ -288,7 +243,6 @@ def score_residues_marginal(fragment_df: pd.DataFrame,
         records.append({"residue": res_i, "nucleus_score": delta})
 
     res_df = pd.DataFrame(records)
-    # Normalize only the marginal residues (beyond min_len); baseline stays 0.0
     marginal_mask = res_df["residue"] > min_len
     raw = res_df["nucleus_score"].values.copy()
     if marginal_mask.any():
@@ -298,7 +252,6 @@ def score_residues_marginal(fragment_df: pd.DataFrame,
     raw[~marginal_mask] = 0.0  # baseline residues: explicitly zero after normalization
     res_df["nucleus_score"] = raw
 
-    # Phase 3 — Enhancement 2: fuse pLDDT gradient into marginal score
     if PLDDT_GRADIENT_WEIGHT > 0 and plddt_gradient is not None:
         grad_aligned = np.zeros(max_length, dtype=float)
         n = min(len(plddt_gradient), max_length)
@@ -309,7 +262,6 @@ def score_residues_marginal(fragment_df: pd.DataFrame,
         raw[~marginal_mask] = 0.0
         res_df["nucleus_score"] = raw
 
-    # Phase 3 — Enhancement 3: fuse contact formation rate
     if CONTACT_RATE_WEIGHT > 0 and contact_formation_rate is not None:
         rate_aligned = np.zeros(max_length, dtype=float)
         n = min(len(contact_formation_rate), max_length)
@@ -320,8 +272,7 @@ def score_residues_marginal(fragment_df: pd.DataFrame,
         raw[~marginal_mask] = 0.0
         res_df["nucleus_score"] = raw
 
-    # Statistical threshold on marginal residues only.
-    # Use adaptive_sigma_factor(max_length) to tune candidate-set size.
+    # Threshold marginal residues with a length-adaptive sigma factor.
     marginal_scores = res_df.loc[marginal_mask, "nucleus_score"].values
     if len(marginal_scores) > 0:
         mu = np.mean(marginal_scores)
@@ -376,15 +327,15 @@ def score_residues_combined(fragment_df: pd.DataFrame,
 
     Uses score_residues_ab_initio() as the primary signal (truly ab initio:
     emergent contacts, self-referenced RMSF, SS onset timing — no native
-    structure reference).  Falls back to score_residues_marginal() when MC
-    trajectory data is unavailable (empty ab initio result).
+    structure reference). Falls back to marginal scoring when prediction-
+    ensemble data is unavailable.
 
-    Adaptive weighting: when MC quality is poor (q_local_full < threshold),
+    Adaptive weighting: when prediction quality is poor,
     the structural importance signal dominates.
 
-      q_full < 0.20  → w_imp=0.90, w_marg=0.10  (MC failed: importance dominates)
-      q_full < 0.40  → w_imp=0.75, w_marg=0.25  (MC moderate)
-      q_full ≥ 0.40  → w_imp=0.50, w_marg=0.50  (MC reasonable: equal weight)
+      q_full < 0.20  → w_imp=0.90, w_marg=0.10
+      q_full < 0.40  → w_imp=0.75, w_marg=0.25
+      q_full ≥ 0.40  → w_imp=0.50, w_marg=0.50
 
     When importance_df is None or empty, falls back to pure ab initio / marginal.
 
@@ -398,7 +349,7 @@ def score_residues_combined(fragment_df: pd.DataFrame,
 
     Returns a DataFrame with columns: residue, nucleus_score, is_nucleus.
     """
-    # Adaptive weighting based on MC convergence quality
+    # Adjust weights when the primary signal is uninformative.
     if w_marginal is None and w_importance is None:
         q_full = 0.30  # neutral default
         if not fragment_df.empty:
@@ -420,12 +371,10 @@ def score_residues_combined(fragment_df: pd.DataFrame,
         if w_importance is None:
             w_importance = SCORING_COMBINED_W_IMPORTANCE
 
-    # Primary signal: truly ab initio (no native reference)
     primary_df = score_residues_ab_initio(max_length)
     if primary_df.empty:
         primary_df = score_residues_marginal(fragment_df, max_length)
 
-    # If no importance data, fall back to pure primary signal
     if importance_df is None or importance_df.empty or "importance" not in importance_df.columns:
         return primary_df
 
@@ -440,7 +389,6 @@ def score_residues_combined(fragment_df: pd.DataFrame,
     combined = (w_marginal * ns_norm + w_importance * imp_norm) * 3.0
     merged["nucleus_score"] = combined
 
-    # Adaptive threshold on combined scores
     sigma_factor = adaptive_sigma_factor(max_length)
     mu    = float(np.mean(combined))
     sigma = float(np.std(combined))
@@ -457,7 +405,7 @@ def score_residues_bidirectional(n_fragment_df: pd.DataFrame,
     """
     Bidirectional marginal scoring: fuse N-terminal and C-terminal fragment signals.
 
-    C4/MANS: fusion weighted by Relative Contact Order (Plaxco 1998).
+    Fusion is weighted by relative contact order.
     RCO ∈ [0,1]: low → MAX fusion; high → mean fusion of terminal scans.
     fused = RCO * mean(N,C) + (1-RCO) * max(N,C)
 
@@ -487,12 +435,11 @@ def score_residues_bidirectional(n_fragment_df: pd.DataFrame,
 
     n_arr = merged["n_score"].values
     c_arr = merged["c_score"].values
-    # C4/MANS: RCO-weighted interpolation between MAX (local) and MEAN (long-range)
+    # RCO interpolates between local maximum and global mean evidence.
     alpha = float(np.clip(relative_contact_order, 0.0, 1.0)) if relative_contact_order is not None else 0.0
     fused = alpha * (n_arr + c_arr) / 2.0 + (1.0 - alpha) * np.maximum(n_arr, c_arr)
     merged["nucleus_score"] = fused
 
-    # Re-apply adaptive threshold on fused scores
     scores = merged["nucleus_score"].values
     mu    = float(np.mean(scores))
     sigma = float(np.std(scores))
@@ -509,17 +456,17 @@ def score_residues_ab_initio(max_length: int,
     """
     No-native-reference structural-emergence scoring.
 
-    For each residue i, three signals are extracted from the MC ensembles
+    For each residue i, three signals are extracted from prediction ensembles
     without any knowledge of the native/target structure:
 
       1. emergent_contact_onset(i): smallest fragment length L where the
          residue develops >= EMERGENT_CONTACT_DEGREE_ONSET contacts that
          form consistently (probability >= EMERGENT_CONTACT_CONSISTENCY)
-         in the MC ensemble.  Earlier onset → higher score.
+         in the ensemble. Earlier onset gives a higher score.
 
       2. rmsf_onset(i): smallest L where self-referenced RMSF(i,L) drops
          below the global median RMSF.  RMSF is computed relative to the
-         mean coordinates of the MC ensemble (no native superposition).
+         mean ensemble coordinates without native superposition.
          Residues that rigidify early score higher.
 
       3. ss_onset(i): smallest L where SS_persistence(i,L) > 0.70.
@@ -550,17 +497,16 @@ def score_residues_ab_initio(max_length: int,
     lengths = list(range(MIN_FRAGMENT_LENGTH, max_length + 1))
     fallback = float(max_length + 1)  # worst-case onset: never reached
 
-    # --- Signal 1: emergent contact onset (no native pairs) ---
+    # Contact onset without a native reference
     profile, valid_lengths_c = build_emergent_contact_profile(n_res, lengths=lengths)
     if len(valid_lengths_c) == 0:
         return pd.DataFrame()
-    # Threshold: degree > (EMERGENT_CONTACT_DEGREE_ONSET - 1), i.e. degree >= ONSET
     contact_onset = compute_onset_from_matrix(
         profile.astype(float), valid_lengths_c,
         threshold=EMERGENT_CONTACT_DEGREE_ONSET - 1, above=True,
     )
 
-    # --- Signal 2: self-referenced RMSF onset ---
+    # Self-referenced RMSF onset
     rmsf_matrix, valid_lengths_r = compute_rmsf_trajectory_ab_initio(n_res, lengths=lengths)
     if len(valid_lengths_r) > 0 and rmsf_matrix.size > 0:
         rmsf_median = float(np.nanmedian(rmsf_matrix))
@@ -569,7 +515,7 @@ def score_residues_ab_initio(max_length: int,
     else:
         rmsf_onset = np.full(n_res, np.inf)
 
-    # --- Signal 3: SS onset (DSSP — purely geometric, already ab initio) ---
+    # Geometric secondary-structure onset
     ss_matrix, valid_lengths_s = compute_ss_trajectory(n_res, lengths=lengths)
     if len(valid_lengths_s) > 0 and ss_matrix.size > 0:
         ss_onset = compute_onset_from_matrix(ss_matrix, valid_lengths_s,
@@ -577,12 +523,10 @@ def score_residues_ab_initio(max_length: int,
     else:
         ss_onset = np.full(n_res, np.inf)
 
-    # Replace inf with fallback, clip to n_res
     co = np.where(np.isfinite(contact_onset[:n_res]), contact_onset[:n_res], fallback)
     ro = np.where(np.isfinite(rmsf_onset[:n_res]),    rmsf_onset[:n_res],    fallback)
     so = np.where(np.isfinite(ss_onset[:n_res]),       ss_onset[:n_res],      fallback)
 
-    # Earlier onset (smaller L) → higher score
     score_c = normalize_vector(1.0 / co)
     score_r = normalize_vector(1.0 / ro)
     score_s = normalize_vector(1.0 / so)
@@ -604,7 +548,7 @@ def score_residues_ab_initio(max_length: int,
 
 def score_residues_native(ref_pdb_path: str) -> pd.DataFrame:
     """
-    Score residues from the native PDB structure only — no MC decoys required.
+    Score residues from the native PDB structure only.
 
     Uses compute_importance_from_native() to derive all five importance metrics
     from the native coordinates, then applies the standard adaptive threshold.
@@ -640,10 +584,6 @@ def score_residues_native(ref_pdb_path: str) -> pd.DataFrame:
     })
 
 
-# ---------------------------------------------------------------------------
-# Unified scoring: marginal + intermediate-contact + topological axes
-# ---------------------------------------------------------------------------
-
 def score_residues_unified(fragment_df: pd.DataFrame,
                           max_length: int,
                           importance_df: pd.DataFrame = None,
@@ -677,7 +617,7 @@ def score_residues_unified(fragment_df: pd.DataFrame,
         residue, nucleus_score, is_nucleus, axis_kinetic, axis_cooperative,
         axis_topological, w_kinetic, w_cooperative, w_topological
     """
-    # Axis A: fragment-addition marginal scorer (legacy kinetic field names)
+    # Axis A: fragment-addition marginal score
     if fragment_df.empty:
         return pd.DataFrame()
 
@@ -691,7 +631,7 @@ def score_residues_unified(fragment_df: pd.DataFrame,
 
     axis_a_scores = normalize_vector(marginal_df["nucleus_score"].values)
 
-    # Axis B: operational intermediate-contact subset (legacy TSE names)
+    # Axis B: operational intermediate-contact subset
     from core.analyze import compute_native_contacts, _load_traj
     import warnings
 
@@ -705,7 +645,6 @@ def score_residues_unified(fragment_df: pd.DataFrame,
                 ref_traj = _load_traj(ref_pdb_path)
             native_pairs, _ = compute_native_contacts(ref_traj)
 
-            # Import cooperativity (lazy to avoid circular imports)
             from modules.cooperativity import compute_cooperative_signals
 
             coop_dict = compute_cooperative_signals(max_length, native_pairs, max_length)
@@ -716,7 +655,6 @@ def score_residues_unified(fragment_df: pd.DataFrame,
                 coop_corr = coop_dict["coop_corr"]
                 n_tse_frames = coop_dict["n_tse_frames"]
 
-                # Fuse three cooperative sub-signals
                 q_tse_n = normalize_vector(q_tse)
                 lr_n = normalize_vector(lr_frac)
                 coop_n = normalize_vector(coop_corr)
@@ -753,45 +691,36 @@ def score_residues_unified(fragment_df: pd.DataFrame,
 
     axis_c_scores_norm = normalize_vector(axis_c_scores)
 
-    # Adaptive weight computation
     alpha = UNIFIED_W_KINETIC
     beta = UNIFIED_W_COOPERATIVE
     gamma = UNIFIED_W_TOPOLOGICAL
 
-    # Quality indicator Q1: intermediate-window sampling
     if n_tse_frames < TSE_MIN_FRAMES_PARTIAL:
-        # Insufficient intermediate-window sampling: redistribute beta.
         surplus = beta
         beta = 0.0
         ratio_a = alpha / (alpha + gamma) if (alpha + gamma) > 0 else 0.5
         alpha += surplus * ratio_a
         gamma += surplus * (1.0 - ratio_a)
     elif n_tse_frames < TSE_MIN_FRAMES:
-        # Partial intermediate-window sampling: reduce cooperative weight.
         beta = UNIFIED_W_COOPERATIVE * 0.5
         surplus = UNIFIED_W_COOPERATIVE - beta
         ratio_a = alpha / (alpha + gamma) if (alpha + gamma) > 0 else 0.5
         alpha += surplus * ratio_a
         gamma += surplus * (1.0 - ratio_a)
 
-    # Quality indicator Q2: MC convergence (if available from fragment_df)
+    # Downweight a failed full-length prediction.
     q_local_full = None
     if "q_local_mean" in fragment_df.columns:
-        # Get Q-value of the full-length fragment
         full_len_rows = fragment_df[fragment_df["length"] == max_length]
         if not full_len_rows.empty:
             q_local_full = float(full_len_rows["q_local_mean"].iloc[0])
 
     if q_local_full is not None and q_local_full < 0.01:
-        # Completely failed prediction (near-zero native contacts even at full length).
-        # Threshold 0.01 avoids penalizing β-sandwich ESMFold predictions where
-        # q_local is low (0.02–0.08) due to difficulty predicting inter-strand
-        # contacts, not due to MC convergence failure (Lin 2023, SI).
+        # Reserve this penalty for near-zero, not merely weak, local Q.
         reduction = alpha * 0.7
         alpha -= reduction
         gamma += reduction
 
-    # Renormalize weights to sum to 1
     weight_sum = alpha + beta + gamma
     if weight_sum > 0:
         alpha /= weight_sum
@@ -800,26 +729,19 @@ def score_residues_unified(fragment_df: pd.DataFrame,
     else:
         alpha = beta = gamma = 1.0 / 3.0
 
-    # Combine the three axes
     unified_scores = (alpha * axis_a_scores +
                       beta * axis_b_scores_norm +
                       gamma * axis_c_scores_norm)
 
-    # Rescale to [0, 3]
     unified_rescaled = normalize_vector(unified_scores) * 3.0
 
-    # Heuristic adaptive threshold controlling candidate-set size.
     sigma_factor = adaptive_sigma_factor(max_length)
     mu = float(np.mean(unified_rescaled))
     sigma = float(np.std(unified_rescaled))
     threshold = mu + sigma_factor * sigma
     is_nucleus = unified_rescaled >= threshold
 
-    # C3/MANS diagnostic: Hartigan dip test for bimodality (Hartigan 1985).
-    # Applied as DIAGNOSTIC ONLY (stored in output, does not change is_nucleus).
-    # Muñoz (2002): downhill folders show unimodal φ-distributions.
-    # NOTE: marginal score distributions are inherently sparse (right-skewed),
-    # making the dip test unreliable as a hard filter — used for reporting only.
+    # Bimodality is diagnostic only and does not change candidate selection.
     has_clear_nucleus = True  # legacy output name; denotes score bimodality only
     dip_stat, dip_pval = float("nan"), float("nan")
     if len(unified_rescaled) >= 8:
@@ -830,7 +752,6 @@ def score_residues_unified(fragment_df: pd.DataFrame,
         except ImportError:
             pass
 
-    # Build output with diagnostic columns
     residues = np.arange(1, max_length + 1)
     return pd.DataFrame({
         "residue":            residues,
@@ -849,10 +770,6 @@ def score_residues_unified(fragment_df: pd.DataFrame,
     })
 
 
-# ---------------------------------------------------------------------------
-# Phase 3 — Enhancement 2: pLDDT gradient per residue (∂pLDDT/∂L)
-# ---------------------------------------------------------------------------
-
 def compute_plddt_gradient(metrics: list, n_residues: int) -> np.ndarray:
     """
     Compute per-residue pLDDT gradient: how much each residue's pLDDT changes
@@ -870,7 +787,6 @@ def compute_plddt_gradient(metrics: list, n_residues: int) -> np.ndarray:
     -------
     gradient : (n_residues,) float array — mean ∂pLDDT/∂L per residue
     """
-    # Filter to entries that have per-residue pLDDT arrays
     have_plddt = [(m["length"], m["plddt_per_residue"])
                   for m in metrics
                   if "plddt_per_residue" in m and m["plddt_per_residue"] is not None]
@@ -884,7 +800,6 @@ def compute_plddt_gradient(metrics: list, n_residues: int) -> np.ndarray:
     for idx in range(1, len(have_plddt)):
         l_prev, plddt_prev = have_plddt[idx - 1]
         l_curr, plddt_curr = have_plddt[idx]
-        # Only consecutive lengths are meaningful
         if l_curr != l_prev + 1:
             continue
         n_prev = len(plddt_prev)
@@ -900,10 +815,6 @@ def compute_plddt_gradient(metrics: list, n_residues: int) -> np.ndarray:
                             0.0)
     return gradient
 
-
-# ---------------------------------------------------------------------------
-# Phase 3 — Enhancement 5: Fragment averaging (sliding window mode)
-# ---------------------------------------------------------------------------
 
 def score_residues_averaged(sliding_metrics: list,
                              n_residues: int) -> pd.DataFrame:
@@ -930,13 +841,11 @@ def score_residues_averaged(sliding_metrics: list,
     score_acc = np.zeros(n_residues, dtype=float)
     weight_acc = np.zeros(n_residues, dtype=float)
 
-    # Compute composite scores for sliding fragments
     frag_df = compute_fragment_scores(sliding_metrics)
     if frag_df.empty:
         return pd.DataFrame()
 
     for _, row in frag_df.iterrows():
-        # Need start + window_size to determine which residues are covered
         start = int(row.get("start", 0))
         ws    = int(row.get("window_size", row["length"]))
         score = float(row["score"])
@@ -956,7 +865,6 @@ def score_residues_averaged(sliding_metrics: list,
     with np.errstate(invalid="ignore"):
         avg_score = np.where(weight_acc > 0, score_acc / weight_acc, 0.0)
 
-    # Normalize and threshold (1-indexed residues)
     norm_scores = normalize_vector(avg_score) * 3.0
     sigma_factor = adaptive_sigma_factor(n_residues)
     mu    = float(np.mean(norm_scores))
@@ -992,9 +900,9 @@ def score_residues(fragment_df: pd.DataFrame,
                     Defaults to SCORING_METHOD from config.
     importance_df : for method='combined'/'unified', DataFrame with 'residue' + 'importance' columns
     c_fragment_df : for method='bidirectional', fragment scores for C-terminal fragments
-    sliding_metrics : list of sliding fragment metric dicts (Phase 3 Enhancement 4/5)
-    plddt_gradient  : (n_res,) array of ∂pLDDT/∂L per residue (Phase 3 Enhancement 2)
-    contact_formation_rate : (n_res,) array of contact formation rates (Phase 3 Enhancement 3)
+    sliding_metrics : list of sliding-fragment metric dictionaries
+    plddt_gradient  : (n_res,) array of ∂pLDDT/∂L per residue
+    contact_formation_rate : (n_res,) array of contact-formation rates
     ref_pdb_path  : str, path to reference PDB (needed for unified and native methods)
 
     Returns legacy columns ``nucleus_score`` (FES) and ``is_nucleus``
@@ -1006,7 +914,7 @@ def score_residues(fragment_df: pd.DataFrame,
     if method is None:
         method = SCORING_METHOD
 
-    # Phase 3 — Enhancement 4/5: sliding fragment averaging
+    # Sliding-fragment mode
     if FRAGMENT_MODE == "sliding" and FRAGMENT_AVERAGING and sliding_metrics:
         return score_residues_averaged(sliding_metrics, max_length)
 

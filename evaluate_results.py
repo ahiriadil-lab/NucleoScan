@@ -26,12 +26,10 @@ import pandas as pd
 
 log = logging.getLogger(__name__)
 
-# ---------------------------------------------------------------------------
 # Approximate literature-derived high-Φ examples (nominally Φ > 0.5)
 # Key: PDB ID (lowercase), Value: list of high-φ residue numbers (PDB numbering)
 # Smoke-test reference only: these lists are not sourced from Start2Fold and
 # are not a publication-grade curated benchmark.
-# ---------------------------------------------------------------------------
 EXP_PHI = {
     "1csp": [5, 6, 7, 10],           # CspB: Lys5, Val6, Lys7, Asn10 (φ ≈ 1)
     "1imq": [],                        # Im9: moderate φ 0.3–0.5 only, none > 0.5 clearly
@@ -62,9 +60,7 @@ EVALUABLE = {pdb for pdb, refs in EXP_PHI.items() if refs}
 TOLERANCE = 2  # ±N residues for matching (neighbouring residue tolerance)
 
 
-# ---------------------------------------------------------------------------
 # Helper functions
-# ---------------------------------------------------------------------------
 
 def parse_nucleus(nucleus_str: str) -> list:
     """Parse the legacy candidate-list field from dataset_summary.csv."""
@@ -154,9 +150,7 @@ def mech_group(m: str) -> str:
     return "Other"
 
 
-# ---------------------------------------------------------------------------
 # Main evaluation
-# ---------------------------------------------------------------------------
 
 def evaluate(summary_path: str, kinetics_path: str) -> None:
     """Run the legacy exploratory comparison and print a report."""
