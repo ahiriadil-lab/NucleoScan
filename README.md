@@ -28,8 +28,8 @@ For a chain of length *L*:
    `fragment score = confidence gate × [2Q + backbone agreement + compactness] + normalized confidence`
 
    where Q is heavy-atom native-contact recovery (4.5 Å), backbone agreement
-   comes from Cα RMSD, compactness combines hydrophobic fraction and Cα radius
-   of gyration, and the pLDDT gate rejects or down-weights low-confidence
+   comes from backbone RMSD, compactness is the radius of gyration of hydrophobic
+   side-chain heavy atoms, and the pLDDT gate rejects or down-weights low-confidence
    fragments (thresholds depend on secondary-structure class).
 3. **Residue score (FES).** Three min-max-normalized axes:
 
@@ -38,33 +38,44 @@ For a chain of length *L*:
    - *marginal*: change in fragment score when residue *r* is added;
    - *intermediate-contact*: residues in partially native-like fragments
      (Q ≈ 0.20–0.50), long-range contact fraction, contact-formation persistence;
-   - *topology*: native contact degree, secondary-structure persistence,
+   - *topology*: native contact degree, binary helix/strand indicator,
      betweenness centrality.
+
+   With one prediction per prefix the intermediate-contact axis is empty, and its
+   weight is redistributed: the effective score is
+   `FES(r) = 0.583 × marginal(r) + 0.417 × topology(r)`.
 
    Weights and thresholds are fixed heuristics exposed in `config.py`; no
    model is fitted to experimental labels.
 
 ## Benchmark
 
-Evaluated against Start2Fold HDX annotations (57 proteins, 182
-protein-by-protection-class evaluations, 55–372 residues), with four baselines
-and four ablations:
+Evaluated against Start2Fold HDX annotations after sequence alignment of labels
+and native references (57 proteins, 184 protein-by-protection-class evaluations,
+55–372 residues), with four baselines and five ablations:
 
 | Target | Median AUC-ROC (95 % bootstrap CI) | n proteins |
 |---|---|---|
-| Early kinetic protection | 0.711 (0.657–0.771) | 39 |
-| Strong equilibrium protection | 0.762 (0.694–0.811) | 53 |
+| Early kinetic protection | 0.746 (0.721–0.803) | 39 |
+| Strong equilibrium protection | 0.800 (0.780–0.816) | 54 |
 
-- **Where FES adds value:** at the head of the ranking. Median precision@K rises
-  from 0.250 (confidence-only baseline) to 0.333 for early protection; the
-  top-ranked set improves in 24/39 proteins (9 worse, 6 tied).
-- **Honest control:** a confidence-only baseline gives comparable whole-ranking
-  AUC-ROC (0.720, P = 0.179), so FES should be used to prioritize the top of a
-  list, not as a stronger global classifier.
+- **Head of the ranking:** median precision@K for early protection rises from
+  0.290 (confidence-only baseline) to 0.400 (paired difference 0.087, 95 % CI
+  0.026–0.200, Holm-adjusted P = 0.002; 27 better, 6 worse, 6 tied).
+- **Whole ranking:** confidence alone gives AUC-ROC 0.725 (Holm-adjusted
+  P = 0.055), so FES is not clearly better than confidence on the whole ranking.
+- **Topology control:** the native-topology axis alone, which uses no prediction,
+  was not distinguishable from FES for early protection (AUC-ROC 0.772, paired
+  difference −0.005, 95 % CI −0.018 to 0.007) and scored higher for strong
+  protection (0.822 vs 0.800, Holm-adjusted P = 0.008). The prefix-scan axis alone
+  reached 0.626. An added contribution of prefix scanning was not demonstrated.
 - **Applicability domain:** performance declines with chain length
-  (Spearman ρ = −0.51, P = 0.001). Best suited to small, single-domain proteins.
+  (Spearman ρ = −0.48, P = 0.002), as it does for native contact degree. Best
+  suited to small, single-domain proteins.
 
-A manuscript describes the method and benchmark.
+The benchmark used the tagged version `v1.1.0` (commit `a93fa2b`). This branch is
+a reduced sequence-to-score pipeline. The analysis scripts are provided
+with the article.
 
 ## Requirements
 
@@ -114,6 +125,8 @@ python nucleoscan.py \
 ```
 
 Results are written to `results/` and generated structures to `structures/`.
+A supplied reference is paired with the sequence by index, on its first chain:
+it must contain the same residues in the same order.
 
 ## Options
 
