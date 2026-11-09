@@ -1,4 +1,4 @@
-"""Flank control (revision): as predict_docker.py but without glycine flanks.
+"""Flank control: as predict_docker.py but without glycine flanks.
 
 Proteins listed in FLANK0_PROTEINS (comma-separated); output in structures_flank0/,
 timing in logs/flank0_timing.tsv. Rejection still uses mean pLDDT < 40, now computed

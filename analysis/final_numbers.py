@@ -1,8 +1,8 @@
-"""Collect every number cited in the revision documents into FINAL_NUMBERS.json.
+"""Collect every number cited in the documents into FINAL_NUMBERS.json.
 
-Primary analysis: revision_outputs_mapped (sequence-aligned). Reproduction of the
-submitted protocol: revision_outputs_positional. Flank control: revision_outputs_flank0
-and the same proteins in the primary analysis.
+Primary analysis: revision_outputs_mapped (sequence-aligned). Index-paired comparison:
+revision_outputs_positional. Flank control: revision_outputs_flank0 and the same
+proteins in the primary analysis.
 """
 import json
 from pathlib import Path

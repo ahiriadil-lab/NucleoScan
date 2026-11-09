@@ -1,4 +1,4 @@
-"""Sequence-aligned residue mapping for the revision (corrects v1.1.0 positional mapping).
+"""Sequence-aligned residue mapping of native references and Start2Fold labels.
 
 All quantities are expressed on the predicted-sequence positions (the prefix-scan frame):
 
