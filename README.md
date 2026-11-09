@@ -74,8 +74,8 @@ and native references (57 proteins, 184 protein-by-protection-class evaluations,
   suited to small, single-domain proteins.
 
 The benchmark used the tagged version `v1.1.0` (commit `a93fa2b`). This branch is
-a reduced sequence-to-score pipeline. The analysis scripts, including the residue
-mapping by sequence alignment, are in [`analysis/`](analysis/).
+a reduced sequence-to-score pipeline. The analysis scripts are provided
+with the article.
 
 ## Requirements
 
