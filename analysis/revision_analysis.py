@@ -1,6 +1,6 @@
-"""Revision analyses for the Protein Journal manuscript (reviewer requests).
+"""Benchmark analyses for the NucleoScan manuscript.
 
-Reads the v1.1.0 rerun (results_rerun/, structures_rerun/), rescores every protein
+Reads the v1.1.0 predictions (results_rerun/, structures_rerun/), rescores every protein
 under the published configuration, the four ablations and a sensitivity grid,
 and writes tables to revision_outputs/.
 
@@ -9,8 +9,8 @@ v1.1.0 scoring functions; only module constants are changed per variant. The
 published configuration is checked to reproduce residue_scores.csv exactly.
 
 Usage: python revision_analysis.py [positional|mapped]
-  positional  v1.1.0 residue mapping and raw Start2Fold numbering (reproduction of the submission)
-  mapped      sequence-aligned native reference and labels (mapping.py; corrected analysis)
+  positional  index-based residue pairing and raw Start2Fold numbering
+  mapped      sequence-aligned native reference and labels (mapping.py; reported analysis)
   flank0      as mapped, on the flank-control predictions (structures_flank0/, no glycine flanks)
 """
 from __future__ import annotations
@@ -65,7 +65,7 @@ VARIANTS = {
     "A2": ("marginal", {}),
     "A3": ("unified", {"PLDDT_WEIGHT": 0.0, **{n: -np.inf for n in GATE}}),
     "A4": ("unified", {"PLDDT_WEIGHT": 0.0}),
-    # native-topology axis alone (no prediction input); added in revision
+    # native-topology axis alone (no prediction input)
     "A5": ("unified", {"UNIFIED_W_KINETIC": 0.0, "UNIFIED_W_COOPERATIVE": 0.0, "UNIFIED_W_TOPOLOGICAL": 1.0}),
 }
 # Effective axis weights: marginal w, topology 1 - w (intermediate-contact axis is empty

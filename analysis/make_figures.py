@@ -1,4 +1,4 @@
-"""Figures for the revised manuscript from revision_outputs_mapped/ (and _positional for Fig. S6).
+"""Figures for the manuscript from revision_outputs_mapped/ (and _positional for Fig. S6).
 
 Usage: python make_figures.py
 Writes figures/ (TIFF 300 dpi for the main text, PNG for Online Resource 1).
@@ -185,7 +185,7 @@ ax.set_xlabel("Median across proteins")
 ax.legend(frameon=False, fontsize=7.5, loc="upper center", bbox_to_anchor=(0.5, -0.12), ncol=3)
 save(fig, "Figure_S5")
 
-# Fig. S6: effect of the residue-mapping correction on per-protein EARLY AUC
+# Optional: index-paired versus aligned per-protein EARLY AUC
 if (P / "metrics_long.csv").exists():
     pos = pd.read_csv(P / "metrics_long.csv")
     a = pos[(pos.level == "early") & (pos.method == "A0")].set_index("name").auc_roc
@@ -194,7 +194,7 @@ if (P / "metrics_long.csv").exists():
     affected = (diag.positional_identity < 0.9) | (diag.label_offset != 0) | (diag.native_identity < 0.9)
     both = pd.concat([a.rename("pos"), b.rename("map")], axis=1).dropna()
     fig, ax = plt.subplots(figsize=(4.6, 4.3))
-    for flag, c, mk, lab in ((False, GRAY, "o", "mapping unchanged"), (True, RED, "^", "mapping corrected")):
+    for flag, c, mk, lab in ((False, GRAY, "o", "index pairing correct"), (True, RED, "^", "index pairing shifted")):
         s = both[affected.reindex(both.index).fillna(False) == flag]
         ax.scatter(s["pos"], s["map"], c=c, marker=mk, s=34, edgecolor="white", linewidth=0.8, label=f"{lab} ({len(s)})", zorder=3)
     ax.plot([0.2, 1], [0.2, 1], ls="--", color=GRAY, lw=0.8)

@@ -1,10 +1,10 @@
-# Revision scripts (The Protein Journal, 2026)
+# Benchmark analysis scripts
 
-These scripts produced the revised benchmark: residue mapping, rescoring, statistics and figures.
+These scripts perform the benchmark: residue mapping, scoring, statistics and figures.
 They run on NucleoScan v1.1.0 (tag `v1.1.0`, commit `a93fa2b`), copied into the same folder.
 
 Order: `rerun.py` (fragments), `run_predictions.sh` / `run_predictions_offload.sh` (ESMFold), `rerun.py` (fragment
-metrics), `revision_analysis.py positional|mapped|flank0`, `final_numbers.py`, `make_figures.py`.
+metrics), `revision_analysis.py mapped|flank0`, `final_numbers.py`, `make_figures.py`.
 
 Per-residue outputs, metrics and logs are in Online Resource 2 of the article.
 
